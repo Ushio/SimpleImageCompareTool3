@@ -63,6 +63,22 @@
             <input class="border_color" value="#000000" style="width:130px"/>
         </div>
 
+        <div style="width: 30px"></div> <!--  margin -->
+
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Font Size</div>
+            <div style="text-align: center;" id="fontsizelabel">30 px</div>
+            <input type="range" value="30" min="0" max="100" step="1" id="fontsize">
+        </div>
+
+        <div style="width: 30px"></div> <!--  margin -->
+
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Font Color</div>
+            <div style="height: 25px"></div> <!--  margin -->
+            <input class="font_color" value="#FF0000" style="width:130px"/>
+        </div>
+
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
             <div style="text-align: center;">Save</div>
             <button style="
@@ -84,8 +100,14 @@ const uicanvas = document.getElementById('uicanvas');
 const uictx = uicanvas.getContext('2d');
 const compositecanvas = document.createElement('canvas');
 
-let L_label = "LeftImage左.png";
-let R_label = "RightImage右.png";
+function invokeRender() {
+    glsl.forceRender = true;
+    glsl.render();
+    glsl.forceRender = false;
+}
+
+let L_label = "L";
+let R_label = "R";
 
 let angle = 0.0;
 
@@ -97,11 +119,13 @@ glsl.on("render", function(e) {
         .css('left', offset.left)
         .css('top', offset.top)
         .width (glcontainer.width())
-        .height(glcontainer.height())
+        .height(glcontainer.height());
 
     uicanvas.width  = canvas.width;
     uicanvas.height = canvas.height;
     
+    const fontsize = $("#fontsize")[0].value;
+    const font_color = $(".font_color")[0].value;
     const TEXT_MARGIN = 15;
 
     const Location = {
@@ -111,11 +135,15 @@ glsl.on("render", function(e) {
         RB : 4
     };
     function drawText(text, location) {
+        if(fontsize == "0") {
+            return;
+        }
         uictx.save();
-        uictx.font = "40px Arial";
-        uictx.fillStyle = "black";
+        uictx.font = fontsize + "px Arial";
+        uictx.fillStyle = font_color;
         uictx.strokeStyle = "white";
-        uictx.lineWidth = 5;
+
+        uictx.lineWidth = parseFloat(fontsize) / 6.0;
 
         let x, y;
         if(location == Location.LT || location == Location.RT){
@@ -178,6 +206,8 @@ glsl.on("render", function(e) {
 // }, 
 // 100);
 
+$(window).resize(invokeRender);
+
 // we don't need auto rendering loop
 glsl.pause();
 
@@ -232,6 +262,8 @@ glsl.load(fs);
 canvas.width = 1200;
 canvas.height = 722;
 
+L_label = "dogs-before.jpg";
+R_label = "dogs-after.jpg";
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
 glsl.setUniform("u_direction", 1.0, 0.0);
@@ -290,7 +322,6 @@ $(".direction_dial").attr("value", DIAL_STEPS / 4).knob({
         if(angle <= -180.0) {
             angle += 360.0;
         }
-        console.log(angle);
         glsl.setUniform("u_direction", Math.cos(radian), Math.sin(radian));
     }
 });
@@ -302,12 +333,12 @@ $("#border").on("input", function(e){
     $("#borderlabel").text(value + "px");
 });
 
-// initialize on single element with selector string
-var hueb = new Huebee( '.border_color', {
+// Border color
+var hueb_border = new Huebee( '.border_color', {
   notation: 'hex',
   saturations: 2,
 });
-hueb.on( 'change', function( color, hue, sat, lum ) {
+hueb_border.on( 'change', function( color, hue, sat, lum ) {
     const R = color.slice(1, 3);
     const G = color.slice(3, 5);
     const B = color.slice(5, 7);
@@ -315,7 +346,28 @@ hueb.on( 'change', function( color, hue, sat, lum ) {
     const g = parseInt(G, 16) / 255.0;
     const b = parseInt(B, 16) / 255.0;
     glsl.setUniform("u_border_color", r, g, b);
-})
+});
+
+$("#fontsize").on("input", function(e){
+    const value = this.value;
+    invokeRender();
+    $("#fontsizelabel").text(value + "px");
+});
+
+
+var hueb_font = new Huebee( '.font_color', {
+  notation: 'hex',
+  saturations: 2,
+});
+hueb_font.on( 'change', function( color, hue, sat, lum ) {
+    const R = color.slice(1, 3);
+    const G = color.slice(3, 5);
+    const B = color.slice(5, 7);
+    const r = parseInt(R, 16) / 255.0;
+    const g = parseInt(G, 16) / 255.0;
+    const b = parseInt(B, 16) / 255.0;
+    invokeRender();
+});
 
 
 // on save
@@ -345,10 +397,16 @@ var dragleaveHandler = function(e){
 $("#drop-zoneL").on("dragleave", dragleaveHandler);
 $("#drop-zoneR").on("dragleave", dragleaveHandler);
 
-var handleDrop = function(e, sampler) {
+var handleDrop = function(e, sampler, isLeft) {
     e.preventDefault();
 
     var file = e.originalEvent.dataTransfer.files[0];
+    if(isLeft) {
+        L_label = file.name;
+    } else {
+        R_label = file.name;
+    }
+
     var reader = new FileReader();
     reader.onload = function(event) {
         glsl.setUniform(sampler, event.target.result);
@@ -364,11 +422,11 @@ var handleDrop = function(e, sampler) {
 };
 $("#drop-zoneL").on("drop", function(e) {
     $(this).removeClass("dragover");
-    handleDrop(e, "u_image_L");
+    handleDrop(e, "u_image_L", true);
 });
 $("#drop-zoneR").on("drop", function(e) {
     $(this).removeClass("dragover");
-    handleDrop(e, "u_image_R");
+    handleDrop(e, "u_image_R", false);
 });
 
 </script>
