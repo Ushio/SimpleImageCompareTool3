@@ -31,9 +31,13 @@
     </div>
 </div>
 
-<div style="display: flex; justify-content: center; " id="container">
+<div style="display: flex; justify-content: center; " id="glcontainer">
     <canvas id="glcanvas" style="max-width:100%;">
-</div >
+</div>
+
+<div style="display: flex; justify-content: center; position: absolute; left: 0px; top: 0px; z-index: 10;" id="uicontainer">
+    <canvas id="uicanvas" style="max-width:100%;">
+</div>
 
 <div style="margin:10px; padding:10px; border:1px solid black;">
     <!-- align-items: center; align-items: center  -->
@@ -74,7 +78,105 @@
 <script>
 'use strict';
 const canvas = document.getElementById('glcanvas');
-var glsl = new GlslCanvas(canvas, {preserveDrawingBuffer: true});
+const glsl = new GlslCanvas(canvas, {preserveDrawingBuffer: true});
+
+const uicanvas = document.getElementById('uicanvas');
+const uictx = uicanvas.getContext('2d');
+const compositecanvas = document.createElement('canvas');
+
+let L_label = "LeftImage左.png";
+let R_label = "RightImage右.png";
+
+let angle = 0.0;
+
+glsl.on("render", function(e) {
+    const glcontainer = $('#glcontainer');
+    var offset = glcontainer.offset();
+
+    $('#uicontainer')
+        .css('left', offset.left)
+        .css('top', offset.top)
+        .width (glcontainer.width())
+        .height(glcontainer.height())
+
+    uicanvas.width  = canvas.width;
+    uicanvas.height = canvas.height;
+    
+    const TEXT_MARGIN = 15;
+
+    const Location = {
+        LT : 1,
+        RT : 2,
+        LB : 3,
+        RB : 4
+    };
+    function drawText(text, location) {
+        uictx.save();
+        uictx.font = "40px Arial";
+        uictx.fillStyle = "black";
+        uictx.strokeStyle = "white";
+        uictx.lineWidth = 5;
+
+        let x, y;
+        if(location == Location.LT || location == Location.RT){
+            uictx.textBaseline = "top";
+            y = TEXT_MARGIN;
+        } else {
+            uictx.textBaseline = "bottom";
+            y = uicanvas.height - TEXT_MARGIN;
+        }
+        if(location == Location.LT || location == Location.LB){
+            uictx.textAlign = "left";
+            x = TEXT_MARGIN;
+        } else {
+            uictx.textAlign = "right";
+            x = uicanvas.width - TEXT_MARGIN;
+        }
+        
+        uictx.strokeText(text, x, y);
+        uictx.fillText(text, x, y);
+        uictx.restore();
+    }
+
+    if(angle < -135.0) {
+        drawText(L_label, Location.RT);
+        drawText(R_label, Location.LT);
+    }
+    else if(-135.0 <= angle && angle < -95.0) {
+        drawText(L_label, Location.RT);
+        drawText(R_label, Location.LB);
+    }
+    else if(-95.0 <= angle && angle < -85.0) {
+        drawText(L_label, Location.LT);
+        drawText(R_label, Location.LB);
+    }
+    else if(-85.0 <= angle && angle < -45.0) {
+        drawText(L_label, Location.LT);
+        drawText(R_label, Location.RB);
+    }
+    else if(-45.0 <= angle && angle < 45.0) {
+        drawText(L_label, Location.LT);
+        drawText(R_label, Location.RT);
+    } else if(45.0 <= angle && angle < 85.0) {
+        drawText(L_label, Location.LB);
+        drawText(R_label, Location.RT);
+    } else if(85.0 <= angle && angle < 95.0) {
+        drawText(L_label, Location.LB);
+        drawText(R_label, Location.LT);
+    } else if(95.0 <= angle && angle < 135.0) {
+        drawText(L_label, Location.RB);
+        drawText(R_label, Location.LT);
+    }
+    else if(135.0 <= angle && angle <= 180.0) {
+        drawText(L_label, Location.RT);
+        drawText(R_label, Location.LT);
+    }
+});
+
+// UI Drawing
+// setInterval(function () {
+// }, 
+// 100);
 
 // we don't need auto rendering loop
 glsl.pause();
@@ -129,6 +231,7 @@ glsl.load(fs);
 
 canvas.width = 1200;
 canvas.height = 722;
+
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
 glsl.setUniform("u_direction", 1.0, 0.0);
@@ -137,13 +240,15 @@ glsl.setUniform("u_border", 2);
 glsl.setUniform("u_border_color", 0.0, 0.0, 0.0);
 
 // Mouse Move & Mouse Up is need global event  -> html
-// Mouse Down shouldn't work outside of canvas -> #glcanvas
+// Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
+const EVENT_VIEW = "#uicanvas";
+
 var down = false;
-$("#glcanvas").mousedown(function(e) {
+$(EVENT_VIEW).mousedown(function(e) {
     down = true;
 });
 $("html").mouseup(function() {
-    down = false;  
+    down = false;
 });
 
 function updateMouseLocation(e) {
@@ -165,8 +270,8 @@ $("html").mousemove(function(e) {
     e.offsetY = y;
     updateMouseLocation(e);
 });
-$('#glcanvas').mouseleave(updateMouseLocation);
-$('#glcanvas').mousedown(function(e){
+$(EVENT_VIEW).mouseleave(updateMouseLocation);
+$(EVENT_VIEW).mousedown(function(e){
     down = true;
     updateMouseLocation(e);
 });
@@ -180,8 +285,13 @@ $(".direction_dial").attr("value", DIAL_STEPS / 4).knob({
     'change' : function (v) { 
         const clock = this.cv;
         const tick = (clock - DIAL_STEPS / 4.0);
-        const angle = -tick / DIAL_STEPS * Math.PI * 2;
-        glsl.setUniform("u_direction", Math.cos(angle), Math.sin(angle));
+        const radian = -tick / DIAL_STEPS * Math.PI * 2;
+        angle = radian / (2.0 * Math.PI) * 360.0;
+        if(angle <= -180.0) {
+            angle += 360.0;
+        }
+        console.log(angle);
+        glsl.setUniform("u_direction", Math.cos(radian), Math.sin(radian));
     }
 });
 
@@ -207,12 +317,17 @@ hueb.on( 'change', function( color, hue, sat, lum ) {
     glsl.setUniform("u_border_color", r, g, b);
 })
 
+
 // on save
 function onSave() {
-    canvas.toBlob(function(blob) {
-        var imgdata = canvas.toDataURL('image/png');
-        saveAs(imgdata, "compare.png");
-    });
+    compositecanvas.width = canvas.width;
+    compositecanvas.height = canvas.height;
+    const compositecanvasCtx = compositecanvas.getContext('2d');
+    compositecanvasCtx.drawImage(canvas, 0, 0);
+    compositecanvasCtx.drawImage(uicanvas, 0, 0);
+
+    var imgdata = compositecanvas.toDataURL('image/png');
+    saveAs(imgdata, "compare.png");
 }
 
 
