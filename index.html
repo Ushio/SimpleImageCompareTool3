@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<head> 
+    <script src="jquery-3.3.1.min.js"></script>
+    <script src="jquery.event.move.js"></script>
+    <script src="jquery.knob.js"></script>
+    <script src="GlslCanvas.js"></script>
+    <script src="FileSaver.js"></script>
+    
+    <link rel="stylesheet" href="huebee.css">
+    <script src="huebee.pkgd.js"></script>
+    <style>
+        .dragover {
+            background:rgb(193, 225, 255);
+        }
+        .boxspan {
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+            line-height:50px;
+        }
+    </style>
+</head>
+
+<body>
+<div style="margin: 10px;">
+    <div style="width: 100%; display: flex; ">
+        <div id="drop-zoneL" style="height: 50px; width: 100%; border: thin solid #888888;"><span class="boxspan">Left Image (Please drop your image here)</span></div>
+        <div style="width: 20px;"></div>
+        <div id="drop-zoneR" style="height: 50px; width: 100%; border: thin solid #888888;"><span class="boxspan">Right Image (Please drop your image here)</span></div>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: center; " id="container">
+    <canvas id="glcanvas" style="max-width:100%;">
+</div >
+
+<div style="margin:10px; padding:10px; border:1px solid black;">
+    <!-- align-items: center; align-items: center  -->
+    <div style="display: flex; ">
+        <div style="display: flex; flex-direction:column; align-items: center;">
+                <div style="text-align: center;">Direction</div>
+            <input type="text" value="0" class="direction_dial" data-width="100" data-displayInput=false data-thickness=.5 data-cursor=true>
+        </div>
+        
+        <div style="width: 30px"></div> <!--  margin -->
+
+        <div style="display: flex; flex-direction:column; align-items: center;">
+                <div style="text-align: center;">Border</div>
+                <div style="text-align: center;" id="borderlabel">2 px</div>
+                <input type="range" value="2" min="0" max="32" step="1" id="border">
+        </div>
+
+        <div style="width: 30px"></div> <!--  margin -->
+
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Border Color</div>
+            <div style="height: 25px"></div> <!--  margin -->
+            <input class="border_color" value="#000000" style="width:130px"/>
+        </div>
+
+        <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
+            <div style="text-align: center;">Save</div>
+            <button style="
+                background: url('save.svg') no-repeat center;
+                height: 100px;
+                width: 100px;
+                color: white;
+            " onclick="onSave()"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+const canvas = document.getElementById('glcanvas');
+var glsl = new GlslCanvas(canvas, {preserveDrawingBuffer: true});
+
+// we don't need auto rendering loop
+glsl.pause();
+
+// Load only the Fragment Shader
+var fs = `
+#extension GL_OES_standard_derivatives : enable
+#ifdef GL_ES
+precision mediump float;
+#endif
+    uniform vec2  u_resolution;
+    uniform vec2  u_mouselocation;
+    uniform vec2  u_direction;
+    uniform float u_border;
+    uniform vec3  u_border_color;
+
+    uniform sampler2D u_image_L;
+    uniform sampler2D u_image_R;
+
+    float border(vec2 fragcood, vec2 n, vec2 p) {
+        float base = dot(p,        n);
+        float x    = dot(fragcood, n);
+        return x - base;
+    }
+
+    void main() {
+        vec2 fragcoord = gl_FragCoord.xy;
+        vec2 st = fragcoord / u_resolution.xy;
+
+        vec4 L = texture2D(u_image_L, st);
+        vec4 R = texture2D(u_image_R, st);
+
+        if(0.1 < mod(u_border, 2.0)) {
+            fragcoord += vec2(0.5);
+        }
+        
+        float b = border(fragcoord, u_direction, u_mouselocation);
+        float delta = fwidth(b) * 0.5;
+        float s = smoothstep(-delta, delta, b);
+
+        gl_FragColor = mix(L, R, s);
+
+        if(0.0 < u_border) {
+            float bar = u_border * 0.5;
+            float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
+            gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
+        }
+        gl_FragColor.a = 1.0;
+    }
+`;
+glsl.load(fs);
+
+canvas.width = 1200;
+canvas.height = 722;
+glsl.setUniform("u_image_L", "dogs-before.jpg");
+glsl.setUniform("u_image_R", "dogs-after.jpg");
+glsl.setUniform("u_direction", 1.0, 0.0);
+glsl.setUniform("u_mouselocation", canvas.width * 0.5, canvas.height * 0.5);
+glsl.setUniform("u_border", 2);
+glsl.setUniform("u_border_color", 0.0, 0.0, 0.0);
+
+// Mouse Move & Mouse Up is need global event  -> html
+// Mouse Down shouldn't work outside of canvas -> #glcanvas
+var down = false;
+$("#glcanvas").mousedown(function(e) {
+    down = true;
+});
+$("html").mouseup(function() {
+    down = false;  
+});
+
+function updateMouseLocation(e) {
+    if(down) {
+        const scale = canvas.width / canvas.clientWidth;
+        const x = e.offsetX * scale;
+        const y = canvas.height - e.offsetY * scale;
+        glsl.setUniform("u_mouselocation", Math.round(x), Math.round(y));
+    }
+}
+
+$("html").mousemove(function(e) {
+    // Coordinate transform
+    // https://qiita.com/yukiB/items/cc533fbbf3bb8372a924#2-jquery%E3%81%AEoffset%E3%81%A8eventpagexy%E3%82%92%E4%BD%BF%E7%94%A8
+    var offset = $('#glcanvas').offset();
+    var x = e.pageX - offset.left;
+    var y = e.pageY - offset.top;
+    e.offsetX = x;
+    e.offsetY = y;
+    updateMouseLocation(e);
+});
+$('#glcanvas').mouseleave(updateMouseLocation);
+$('#glcanvas').mousedown(function(e){
+    down = true;
+    updateMouseLocation(e);
+});
+
+// Direction
+const DIAL_STEPS = 100.0;
+$(".direction_dial").attr("value", DIAL_STEPS / 4).knob({
+    'max' : DIAL_STEPS,
+    'height' : 110,
+    'fgColor' : "#2A2A2A",
+    'change' : function (v) { 
+        const clock = this.cv;
+        const tick = (clock - DIAL_STEPS / 4.0);
+        const angle = -tick / DIAL_STEPS * Math.PI * 2;
+        glsl.setUniform("u_direction", Math.cos(angle), Math.sin(angle));
+    }
+});
+
+// Border
+$("#border").on("input", function(e){
+    const value = this.value;
+    glsl.setUniform("u_border", parseFloat(value));
+    $("#borderlabel").text(value + "px");
+});
+
+// initialize on single element with selector string
+var hueb = new Huebee( '.border_color', {
+  notation: 'hex',
+  saturations: 2,
+});
+hueb.on( 'change', function( color, hue, sat, lum ) {
+    const R = color.slice(1, 3);
+    const G = color.slice(3, 5);
+    const B = color.slice(5, 7);
+    const r = parseInt(R, 16) / 255.0;
+    const g = parseInt(G, 16) / 255.0;
+    const b = parseInt(B, 16) / 255.0;
+    glsl.setUniform("u_border_color", r, g, b);
+})
+
+// on save
+function onSave() {
+    canvas.toBlob(function(blob) {
+        var imgdata = canvas.toDataURL('image/png');
+        saveAs(imgdata, "compare.png");
+    });
+}
+
+
+var dragoverHandler = function(e){
+    e.preventDefault();
+    $(this).addClass("dragover");
+};
+$("#drop-zoneL").on("dragover", dragoverHandler);
+$("#drop-zoneR").on("dragover", dragoverHandler);
+
+var dragleaveHandler = function(e){
+    e.preventDefault();
+    $(this).removeClass("dragover");
+};
+$("#drop-zoneL").on("dragleave", dragleaveHandler);
+$("#drop-zoneR").on("dragleave", dragleaveHandler);
+
+var handleDrop = function(e, sampler) {
+    e.preventDefault();
+
+    var file = e.originalEvent.dataTransfer.files[0];
+    var reader = new FileReader();
+    reader.onload = function(event) {
+        glsl.setUniform(sampler, event.target.result);
+
+        const image = new Image();
+        image.onload = function() {
+            canvas.width = image.width;
+            canvas.height = image.height;
+        };
+        image.src = event.target.result;
+    }
+    reader.readAsDataURL(file);
+};
+$("#drop-zoneL").on("drop", function(e) {
+    $(this).removeClass("dragover");
+    handleDrop(e, "u_image_L");
+});
+$("#drop-zoneR").on("drop", function(e) {
+    $(this).removeClass("dragover");
+    handleDrop(e, "u_image_R");
+});
+
+</script>
+</body>
+</html>
