@@ -9,6 +9,9 @@
     
     <link rel="stylesheet" href="huebee.css">
     <script src="huebee.pkgd.js"></script>
+
+    <link rel="stylesheet" href="check.css">
+
     <style>
         .dragover {
             background:rgb(193, 225, 255);
@@ -77,6 +80,20 @@
             <div style="text-align: center;">Font Color</div>
             <div style="height: 25px"></div> <!--  margin -->
             <input class="font_color" value="#FF0000" style="width:130px"/>
+        </div>
+
+        <div style="width: 30px"></div> <!--  margin -->
+
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Diff Mode</div>
+            <div style="height: 20px"></div> <!--  margin -->
+            <div class="onoffswitch">
+                <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="diffmode" onchange="didChangeDiffMode(this.checked)">
+                <label class="onoffswitch-label" for="diffmode"></label>
+            </div>
+            <div style="height: 20px"></div> <!--  margin -->
+            <div style="text-align: center;" id="diffscalelabel">100 %</div>
+            <input type="range" value="100" min="100" max="500" step="1" id="diffscale">
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
@@ -224,6 +241,8 @@ precision mediump float;
     uniform vec2  u_direction;
     uniform float u_border;
     uniform vec3  u_border_color;
+    uniform float u_diffmode;
+    uniform float u_diffscale;
 
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
@@ -240,6 +259,10 @@ precision mediump float;
 
         vec4 L = texture2D(u_image_L, st);
         vec4 R = texture2D(u_image_R, st);
+
+        if(0.0 < u_diffmode) {
+            L = abs(L - R) * u_diffscale;
+        }
 
         if(0.1 < mod(u_border, 2.0)) {
             fragcoord += vec2(0.5);
@@ -272,6 +295,8 @@ glsl.setUniform("u_direction", 1.0, 0.0);
 glsl.setUniform("u_mouselocation", canvas.width * 0.5, canvas.height * 0.5);
 glsl.setUniform("u_border", 2);
 glsl.setUniform("u_border_color", 0.0, 0.0, 0.0);
+glsl.setUniform("u_diffmode", 0.0);
+glsl.setUniform("u_diffscale", 1.0);
 
 // Mouse Move & Mouse Up is need global event  -> html
 // Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
@@ -371,6 +396,17 @@ hueb_font.on( 'change', function( color, hue, sat, lum ) {
     invokeRender();
 });
 
+function didChangeDiffMode(value) {
+    glsl.setUniform("u_diffmode", value ? 1.0 : 0.0);
+}
+// Border
+$("#diffscale").on("input", function(e) {
+    const value = this.value;
+    const scale = parseFloat(value) / 100.0;
+    glsl.setUniform("u_diffscale", scale);
+    $("#diffscalelabel").text(value + " %");
+    console.log(scale);
+});
 
 // on save
 function onSave() {
