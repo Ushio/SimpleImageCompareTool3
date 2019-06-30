@@ -439,10 +439,7 @@ var dragleaveHandler = function(e){
 $("#drop-zoneL").on("dragleave", dragleaveHandler);
 $("#drop-zoneR").on("dragleave", dragleaveHandler);
 
-var handleDrop = function(e, sampler, isLeft) {
-    e.preventDefault();
-
-    var file = e.originalEvent.dataTransfer.files[0];
+var handleDrop = function(file, sampler, isLeft) {
     if(isLeft) {
         L_label = file.name;
     } else {
@@ -463,12 +460,31 @@ var handleDrop = function(e, sampler, isLeft) {
     reader.readAsDataURL(file);
 };
 $("#drop-zoneL").on("drop", function(e) {
+    e.preventDefault();
     $(this).removeClass("dragover");
-    handleDrop(e, "u_image_L", true);
+    handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
 });
 $("#drop-zoneR").on("drop", function(e) {
+    e.preventDefault();
     $(this).removeClass("dragover");
-    handleDrop(e, "u_image_R", false);
+    handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+});
+
+$("#drop-zoneL").on("click", function(e) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = event => { 
+        handleDrop(event.target.files[0], "u_image_L", true);
+    };
+    input.click();
+});
+$("#drop-zoneR").on("click", function(e) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = event => { 
+        handleDrop(event.target.files[0], "u_image_R", false);
+    };
+    input.click();
 });
 
 </script>
