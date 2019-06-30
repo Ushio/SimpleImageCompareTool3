@@ -13,6 +13,7 @@
     <script src="huebee.pkgd.js"></script>
 
     <link rel="stylesheet" href="check.css">
+    <link rel="stylesheet" href="slider.css">
 
     <style>
         .dragover {
@@ -57,7 +58,8 @@
         <div style="display: flex; flex-direction:column; align-items: center;">
                 <div style="text-align: center;">Border</div>
                 <div style="text-align: center;" id="borderlabel">2 px</div>
-                <input type="range" value="2" min="0" max="32" step="1" id="border">
+                <div style="height: 25px"></div> <!--  margin -->
+                <input type="range" value="2" min="0" max="32" step="1" id="border" class="slider">
         </div>
 
         <div style="width: 30px"></div> <!--  margin -->
@@ -73,7 +75,8 @@
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Font Size</div>
             <div style="text-align: center;" id="fontsizelabel">30 px</div>
-            <input type="range" value="30" min="0" max="100" step="1" id="fontsize">
+            <div style="height: 25px"></div> <!--  margin -->
+            <input type="range" value="30" min="0" max="100" step="1" id="fontsize" class="slider">
         </div>
 
         <div style="width: 30px"></div> <!--  margin -->
@@ -95,7 +98,7 @@
             </div>
             <div style="height: 20px"></div> <!--  margin -->
             <div style="text-align: center; opacity:0.3;" id="diffscalelabel">100 %</div>
-            <input type="range" value="100" min="100" max="500" step="1" id="diffscale" style="opacity:0.3;">
+            <input type="range" value="100" min="100" max="500" step="1" id="diffscale" style="opacity:0.3;" class="slider">
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
