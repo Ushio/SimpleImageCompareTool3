@@ -27,3 +27,9 @@ opacity: 0.7;
 -webkit-transition: .2s;
 transition: opacity .2s;
 }
+
+@supports (-ms-ime-align: auto) {
+    .slider {
+        height: 20px;
+    }
+}
