@@ -2,7 +2,8 @@
 Pages
 http://Ushio.github.io/SimpleImageCompareTool3
 
-## dependencies
+## dependencies 
+https://jquery.com/
 
 https://github.com/eligrey/FileSaver.js/
 
@@ -13,4 +14,4 @@ http://huebee.buzz/
 https://github.com/aterrien/jQuery-Knob
 
 ## How to use
-![demo](demo2.gif)
+![demo](demo3.gif)
