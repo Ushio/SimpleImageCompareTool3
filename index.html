@@ -92,8 +92,8 @@
                 <label class="onoffswitch-label" for="diffmode"></label>
             </div>
             <div style="height: 20px"></div> <!--  margin -->
-            <div style="text-align: center;" id="diffscalelabel">100 %</div>
-            <input type="range" value="100" min="100" max="500" step="1" id="diffscale">
+            <div style="text-align: center; opacity:0.3;" id="diffscalelabel">100 %</div>
+            <input type="range" value="100" min="100" max="500" step="1" id="diffscale" style="opacity:0.3;">
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
@@ -398,6 +398,9 @@ hueb_font.on( 'change', function( color, hue, sat, lum ) {
 
 function didChangeDiffMode(value) {
     glsl.setUniform("u_diffmode", value ? 1.0 : 0.0);
+    const op = value ? 1.0 : 0.3;
+    $("#diffscalelabel").css("opacity", op);
+    $("#diffscale").css("opacity", op);
 }
 // Border
 $("#diffscale").on("input", function(e) {
@@ -405,7 +408,6 @@ $("#diffscale").on("input", function(e) {
     const scale = parseFloat(value) / 100.0;
     glsl.setUniform("u_diffscale", scale);
     $("#diffscalelabel").text(value + " %");
-    console.log(scale);
 });
 
 // on save
