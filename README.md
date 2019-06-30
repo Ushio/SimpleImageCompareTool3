@@ -13,4 +13,4 @@ http://huebee.buzz/
 https://github.com/aterrien/jQuery-Knob
 
 ## How to use
-![demo](demo.gif)
+![demo](demo2.gif)
