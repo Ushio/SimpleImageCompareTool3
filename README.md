@@ -17,7 +17,4 @@ https://github.com/aterrien/jQuery-Knob
 ![demo](demo3.gif)
 
 ## TODO
-- Arbitnary Label String
 - 4 images
-- Just slice / 
-
