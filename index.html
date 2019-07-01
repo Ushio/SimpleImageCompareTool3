@@ -487,6 +487,13 @@ $("#fontsize").on("input", function(e){
     invokeRender();
     $("#fontsizelabel").text(value + "px");
 });
+// from URL Params
+const url = new URL(location);
+const fontsize = url.searchParams.get('fontsize');
+if(fontsize) {
+    $("#fontsize").val(fontsize);
+    $("#fontsizelabel").text(fontsize + "px");
+}
 
 var hueb_font = new Huebee( '.font_color', {
   notation: 'hex',
