@@ -311,6 +311,8 @@ canvas.height = 722;
 
 L_filename = "dogs-before";
 R_filename = "dogs-after";
+$('#Label_L_override').attr("placeholder", L_filename);
+$('#Label_R_override').attr("placeholder", R_filename);
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
 glsl.setUniform("u_direction", 1.0, 0.0);
@@ -468,12 +470,17 @@ $("#drop-zoneR").on("dragleave", dragleaveHandler);
 function rmExt(s) {
     return s.replace(/\.[^/.]+$/, "");
 }
+function updatePlaceHolder() {
+    $('#Label_L_override').attr("placeholder", L_filename);
+    $('#Label_R_override').attr("placeholder", R_filename);
+}
 var handleDrop = function(file, sampler, isLeft) {
     if(isLeft) {
         L_filename = rmExt(file.name);
     } else {
         R_filename = rmExt(file.name);
     }
+    updatePlaceHolder();
 
     var reader = new FileReader();
     reader.onload = function(event) {
