@@ -410,6 +410,11 @@ $(".direction_dial").attr("value", DIAL_STEPS / 4).knob({
             angle += 360.0;
         }
         glsl.setUniform("u_direction", Math.cos(radian), Math.sin(radian));
+        
+        // move to free mode
+        $('#fixed_direction').val("");
+        $("#dial_container").css("opacity", 1.0);
+        glsl.setUniform("u_direction_fixed", 0.0, 0.0);
     }
 });
 
