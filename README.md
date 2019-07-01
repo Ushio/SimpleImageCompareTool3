@@ -19,3 +19,5 @@ https://github.com/aterrien/jQuery-Knob
 ## TODO
 - Arbitnary Label String
 - 4 images
+- anti-aliasing improvement
+
