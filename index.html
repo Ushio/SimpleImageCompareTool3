@@ -168,7 +168,8 @@ glsl.on("render", function(e) {
         uictx.strokeStyle = "white";
 
         uictx.lineWidth = parseFloat(fontsize) / 6.0;
-
+        uictx.lineJoin = "round";
+        
         let x, y;
         if(location == Location.LT || location == Location.RT){
             uictx.textBaseline = "top";
