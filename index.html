@@ -275,7 +275,10 @@ precision mediump float;
         }
         
         float b = border(fragcoord, u_direction, u_mouselocation);
-        float delta = fwidth(b) * 0.5;
+
+        bool is_straight = abs(u_direction.x) < 1.0e-5 || abs(u_direction.y) < 1.0e-5;
+        float delta = is_straight ? 0.0 : 0.9 /* feeling constant */;
+
         float s = smoothstep(-delta, delta, b);
 
         gl_FragColor = mix(L, R, s);
