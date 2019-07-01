@@ -49,17 +49,26 @@
     <!-- align-items: center; align-items: center  -->
     <div style="display: flex; flex-wrap: wrap;">
         <div style="display: flex; flex-direction:column; align-items: center;">
-                <div style="text-align: center;">Direction</div>
-            <input type="text" value="0" class="direction_dial" data-width="100" data-displayInput=false data-thickness=.5 data-cursor=true>
+            <div style="text-align: center;">Direction</div>
+            <div id="dial_container">
+                <input type="text" value="0" class="direction_dial" data-width="100" data-displayInput=false data-thickness=.5 data-cursor=true>
+            </div>
+            <select id="fixed_direction" name="fixed_direction">
+                <option value="">Free Direction</option>
+                <option value="↘">↘</option>
+                <option value="↗">↗</option>
+                <option value="↖">↖</option>
+                <option value="↙">↙</option>
+            </select>
         </div>
         
         <div style="width: 30px"></div> <!--  margin -->
 
         <div style="display: flex; flex-direction:column; align-items: center;">
-                <div style="text-align: center;">Border</div>
-                <div style="text-align: center;" id="borderlabel">2 px</div>
-                <div style="height: 25px"></div> <!--  margin -->
-                <input type="range" value="2" min="0" max="32" step="1" id="border" class="slider">
+            <div style="text-align: center;">Border</div>
+            <div style="text-align: center;" id="borderlabel">2 px</div>
+            <div style="height: 25px"></div> <!--  margin -->
+            <input type="range" value="2" min="0" max="32" step="1" id="border" class="slider">
         </div>
 
         <div style="width: 30px"></div> <!--  margin -->
@@ -143,7 +152,7 @@ function invokeRender() {
 let L_filename = "L";
 let R_filename = "R";
 
-let angle = 0.0;
+let angle = 0.0; // for label location
 
 glsl.on("render", function(e) {
     const glcontainer = $('#glcontainer');
@@ -204,38 +213,60 @@ glsl.on("render", function(e) {
     let label_L = $("#Label_L_override")[0].value || L_filename;
     let label_R = $("#Label_R_override")[0].value || R_filename;
 
-    if(angle < -135.0) {
-        drawText(label_L, Location.RT);
-        drawText(label_R, Location.LT);
-    }
-    else if(-135.0 <= angle && angle < -95.0) {
-        drawText(label_L, Location.RT);
-        drawText(label_R, Location.LB);
-    }
-    else if(-95.0 <= angle && angle < -85.0) {
-        drawText(label_L, Location.LT);
-        drawText(label_R, Location.LB);
-    }
-    else if(-85.0 <= angle && angle < -45.0) {
-        drawText(label_L, Location.LT);
-        drawText(label_R, Location.RB);
-    }
-    else if(-45.0 <= angle && angle < 45.0) {
-        drawText(label_L, Location.LT);
-        drawText(label_R, Location.RT);
-    } else if(45.0 <= angle && angle < 85.0) {
-        drawText(label_L, Location.LB);
-        drawText(label_R, Location.RT);
-    } else if(85.0 <= angle && angle < 95.0) {
-        drawText(label_L, Location.LB);
-        drawText(label_R, Location.LT);
-    } else if(95.0 <= angle && angle < 135.0) {
-        drawText(label_L, Location.RB);
-        drawText(label_R, Location.LT);
-    }
-    else if(135.0 <= angle && angle <= 180.0) {
-        drawText(label_L, Location.RT);
-        drawText(label_R, Location.LT);
+    const fixed_direction = $('[name="fixed_direction"] option:selected').val();
+    if(fixed_direction) {
+        // fixed label
+        if(fixed_direction === "↘") {
+            drawText(label_L, Location.LT);
+            drawText(label_R, Location.RB);
+        }
+        if(fixed_direction === "↗") {
+            drawText(label_L, Location.LB);
+            drawText(label_R, Location.RT);
+        }
+        if(fixed_direction === "↖") {
+            drawText(label_L, Location.RB);
+            drawText(label_R, Location.LT);
+        }
+        if(fixed_direction === "↙") {
+            drawText(label_L, Location.RT);
+            drawText(label_R, Location.LB);
+        }
+    } else {
+        // automatic
+        if(angle < -135.0) {
+            drawText(label_L, Location.RT);
+            drawText(label_R, Location.LT);
+        }
+        else if(-135.0 <= angle && angle < -95.0) {
+            drawText(label_L, Location.RT);
+            drawText(label_R, Location.LB);
+        }
+        else if(-95.0 <= angle && angle < -85.0) {
+            drawText(label_L, Location.LT);
+            drawText(label_R, Location.LB);
+        }
+        else if(-85.0 <= angle && angle < -45.0) {
+            drawText(label_L, Location.LT);
+            drawText(label_R, Location.RB);
+        }
+        else if(-45.0 <= angle && angle < 45.0) {
+            drawText(label_L, Location.LT);
+            drawText(label_R, Location.RT);
+        } else if(45.0 <= angle && angle < 85.0) {
+            drawText(label_L, Location.LB);
+            drawText(label_R, Location.RT);
+        } else if(85.0 <= angle && angle < 95.0) {
+            drawText(label_L, Location.LB);
+            drawText(label_R, Location.LT);
+        } else if(95.0 <= angle && angle < 135.0) {
+            drawText(label_L, Location.RB);
+            drawText(label_R, Location.LT);
+        }
+        else if(135.0 <= angle && angle <= 180.0) {
+            drawText(label_L, Location.RT);
+            drawText(label_R, Location.LT);
+        }
     }
 });
 
@@ -258,6 +289,7 @@ precision mediump float;
     uniform vec2  u_resolution;
     uniform vec2  u_mouselocation;
     uniform vec2  u_direction;
+    uniform vec2  u_direction_fixed;
     uniform float u_border;
     uniform vec3  u_border_color;
     uniform float u_diffmode;
@@ -286,10 +318,13 @@ precision mediump float;
         if(0.1 < mod(u_border, 2.0)) {
             fragcoord += vec2(0.5);
         }
-        
-        float b = border(fragcoord, u_direction, u_mouselocation);
 
-        bool is_straight = abs(u_direction.x) < 1.0e-5 || abs(u_direction.y) < 1.0e-5;
+        // 
+        vec2 direction = 0.0 < length(u_direction_fixed) ? u_direction_fixed : u_direction;
+        
+        float b = border(fragcoord, direction, u_mouselocation);
+
+        bool is_straight = abs(direction.x) < 1.0e-5 || abs(direction.y) < 1.0e-5;
         float delta = is_straight ? 0.0 : 0.9 /* feeling constant */;
 
         float s = smoothstep(-delta, delta, b);
@@ -321,6 +356,7 @@ glsl.setUniform("u_border", 2);
 glsl.setUniform("u_border_color", 0.0, 0.0, 0.0);
 glsl.setUniform("u_diffmode", 0.0);
 glsl.setUniform("u_diffscale", 1.0);
+glsl.setUniform("u_direction_fixed", 0.0, 0.0);
 
 // Mouse Move & Mouse Up is need global event  -> html
 // Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
@@ -375,6 +411,41 @@ $(".direction_dial").attr("value", DIAL_STEPS / 4).knob({
         }
         glsl.setUniform("u_direction", Math.cos(radian), Math.sin(radian));
     }
+});
+
+$("#fixed_direction").on("change", function(e){
+    const value = this.value;
+    if(value) {
+        $("#dial_container").css("opacity", 0.3);
+
+        glsl.setUniform("u_mouselocation", canvas.width * 0.5, canvas.height * 0.5);
+
+        const L = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
+        if(value === "↘") {
+            let x = canvas.height / L;
+            let y = -canvas.width / L;
+            glsl.setUniform("u_direction_fixed", x, y);
+        }
+        if(value === "↗") {
+            let x = canvas.height / L;
+            let y = canvas.width / L;
+            glsl.setUniform("u_direction_fixed", x, y);
+        }
+        if(value === "↖") {
+            let x = -canvas.height / L;
+            let y = canvas.width / L;
+            glsl.setUniform("u_direction_fixed", x, y);
+        }
+        if(value === "↙") {
+            let x = -canvas.height / L;
+            let y = -canvas.width / L;
+            glsl.setUniform("u_direction_fixed", x, y);
+        }
+    } else {
+        glsl.setUniform("u_direction_fixed", 0.0, 0.0);
+        $("#dial_container").css("opacity", 1.0);
+    }
+    invokeRender();
 });
 
 // Border
