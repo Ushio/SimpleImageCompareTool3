@@ -73,6 +73,16 @@
         <div style="width: 30px"></div> <!--  margin -->
 
         <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Labels</div>
+            <div style="height: 25px"></div> <!--  margin -->
+            <input value="" style="width:130px" id="Label_L_override"/>
+            <div style="height: 10px"></div> <!--  margin -->
+            <input value="" style="width:130px" id="Label_R_override"/>
+        </div>
+
+        <div style="width: 30px"></div> <!--  margin -->
+
+        <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Font Size</div>
             <div style="text-align: center;" id="fontsizelabel">30 px</div>
             <div style="height: 25px"></div> <!--  margin -->
@@ -130,8 +140,8 @@ function invokeRender() {
     glsl.forceRender = false;
 }
 
-let L_label = "L";
-let R_label = "R";
+let L_filename = "L";
+let R_filename = "R";
 
 let angle = 0.0;
 
@@ -191,38 +201,41 @@ glsl.on("render", function(e) {
         uictx.restore();
     }
 
+    let label_L = $("#Label_L_override")[0].value || L_filename;
+    let label_R = $("#Label_R_override")[0].value || R_filename;
+
     if(angle < -135.0) {
-        drawText(L_label, Location.RT);
-        drawText(R_label, Location.LT);
+        drawText(label_L, Location.RT);
+        drawText(label_R, Location.LT);
     }
     else if(-135.0 <= angle && angle < -95.0) {
-        drawText(L_label, Location.RT);
-        drawText(R_label, Location.LB);
+        drawText(label_L, Location.RT);
+        drawText(label_R, Location.LB);
     }
     else if(-95.0 <= angle && angle < -85.0) {
-        drawText(L_label, Location.LT);
-        drawText(R_label, Location.LB);
+        drawText(label_L, Location.LT);
+        drawText(label_R, Location.LB);
     }
     else if(-85.0 <= angle && angle < -45.0) {
-        drawText(L_label, Location.LT);
-        drawText(R_label, Location.RB);
+        drawText(label_L, Location.LT);
+        drawText(label_R, Location.RB);
     }
     else if(-45.0 <= angle && angle < 45.0) {
-        drawText(L_label, Location.LT);
-        drawText(R_label, Location.RT);
+        drawText(label_L, Location.LT);
+        drawText(label_R, Location.RT);
     } else if(45.0 <= angle && angle < 85.0) {
-        drawText(L_label, Location.LB);
-        drawText(R_label, Location.RT);
+        drawText(label_L, Location.LB);
+        drawText(label_R, Location.RT);
     } else if(85.0 <= angle && angle < 95.0) {
-        drawText(L_label, Location.LB);
-        drawText(R_label, Location.LT);
+        drawText(label_L, Location.LB);
+        drawText(label_R, Location.LT);
     } else if(95.0 <= angle && angle < 135.0) {
-        drawText(L_label, Location.RB);
-        drawText(R_label, Location.LT);
+        drawText(label_L, Location.RB);
+        drawText(label_R, Location.LT);
     }
     else if(135.0 <= angle && angle <= 180.0) {
-        drawText(L_label, Location.RT);
-        drawText(R_label, Location.LT);
+        drawText(label_L, Location.RT);
+        drawText(label_R, Location.LT);
     }
 });
 
@@ -296,8 +309,8 @@ glsl.load(fs);
 canvas.width = 1200;
 canvas.height = 722;
 
-L_label = "dogs-before.jpg";
-R_label = "dogs-after.jpg";
+L_filename = "dogs-before";
+R_filename = "dogs-after";
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
 glsl.setUniform("u_direction", 1.0, 0.0);
@@ -384,12 +397,18 @@ hueb_border.on( 'change', function( color, hue, sat, lum ) {
     glsl.setUniform("u_border_color", r, g, b);
 });
 
+$('#Label_L_override').on('input', function () {
+    invokeRender();
+});
+$('#Label_R_override').on('input', function () {
+    invokeRender();
+});
+
 $("#fontsize").on("input", function(e){
     const value = this.value;
     invokeRender();
     $("#fontsizelabel").text(value + "px");
 });
-
 
 var hueb_font = new Huebee( '.font_color', {
   notation: 'hex',
@@ -446,11 +465,14 @@ var dragleaveHandler = function(e){
 $("#drop-zoneL").on("dragleave", dragleaveHandler);
 $("#drop-zoneR").on("dragleave", dragleaveHandler);
 
+function rmExt(s) {
+    return s.replace(/\.[^/.]+$/, "");
+}
 var handleDrop = function(file, sampler, isLeft) {
     if(isLeft) {
-        L_label = file.name;
+        L_filename = rmExt(file.name);
     } else {
-        R_label = file.name;
+        R_filename = rmExt(file.name);
     }
 
     var reader = new FileReader();
