@@ -18,3 +18,4 @@ https://github.com/aterrien/jQuery-Knob
 
 ## TODO
 - 4 images
+- Texture Set Bug 
