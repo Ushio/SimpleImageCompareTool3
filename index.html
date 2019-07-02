@@ -567,6 +567,7 @@ var handleDrop = function(file, sampler, isLeft) {
 
     var reader = new FileReader();
     reader.onload = function(event) {
+        glsl.setUniform(sampler, null);
         glsl.setUniform(sampler, event.target.result);
 
         const image = new Image();
