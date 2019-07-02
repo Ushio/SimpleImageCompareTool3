@@ -1106,10 +1106,12 @@ var Texture = function () {
                     Texture.activeUnit = unit;
                 }
             }
-            if (Texture.activeTexture !== this.texture) {
-                this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-                Texture.activeTexture = this.texture;
-            }
+            // if (Texture.activeTexture !== this.texture) {
+            //     this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+            //     Texture.activeTexture = this.texture;
+            // }
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+            Texture.activeTexture = this.texture;
         }
     }, {
         key: 'load',
