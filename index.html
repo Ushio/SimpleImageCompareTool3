@@ -47,13 +47,15 @@
 
 <style>
 .ui_container > div {
-    margin-bottom:40px;
-    margin: 15px;
+    flex-basis: 160px;
+    height: 160px;
+    margin: 5px;
+    padding: 12px;
+    background: #ffffff;
 }
 </style>
-<div style="margin:20px; padding:10px; border:1px solid black;">
-    <!-- align-items: center; align-items: center  -->
-    <div style="display: flex; flex-wrap: wrap;" class="ui_container">
+<div style="margin:20px; padding:10px; background: #ececec;">
+    <div style="display: flex; flex-wrap: wrap; " class="ui_container">
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Direction</div>
             <div id="dial_container">
@@ -91,9 +93,9 @@
 
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Font Size</div>
-            <div style="text-align: center;" id="fontsizelabel">30 px</div>
+            <div style="text-align: center;" id="fontsizelabel">20 px</div>
             <div style="height: 25px"></div> <!--  margin -->
-            <input type="range" value="30" min="0" max="100" step="1" id="fontsize" class="slider">
+            <input type="range" value="20" min="0" max="100" step="1" id="fontsize" class="slider">
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;">
