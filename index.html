@@ -45,9 +45,15 @@
     <canvas id="uicanvas" style="max-width:100%; height:auto;">
 </div>
 
-<div style="margin:10px; padding:10px; border:1px solid black;">
+<style>
+.ui_container > div {
+    margin-bottom:40px;
+    margin: 15px;
+}
+</style>
+<div style="margin:20px; padding:10px; border:1px solid black;">
     <!-- align-items: center; align-items: center  -->
-    <div style="display: flex; flex-wrap: wrap;">
+    <div style="display: flex; flex-wrap: wrap;" class="ui_container">
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Direction</div>
             <div id="dial_container">
@@ -62,8 +68,6 @@
             </select>
         </div>
         
-        <div style="width: 30px"></div> <!--  margin -->
-
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Border</div>
             <div style="text-align: center;" id="borderlabel">2 px</div>
@@ -71,15 +75,11 @@
             <input type="range" value="2" min="0" max="32" step="1" id="border" class="slider">
         </div>
 
-        <div style="width: 30px"></div> <!--  margin -->
-
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Border Color</div>
             <div style="height: 25px"></div> <!--  margin -->
             <input class="border_color" value="#000000" style="width:130px"/>
         </div>
-
-        <div style="width: 30px"></div> <!--  margin -->
 
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Labels</div>
@@ -89,8 +89,6 @@
             <input value="" style="width:130px" id="Label_R_override"/>
         </div>
 
-        <div style="width: 30px"></div> <!--  margin -->
-
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Font Size</div>
             <div style="text-align: center;" id="fontsizelabel">30 px</div>
@@ -98,15 +96,11 @@
             <input type="range" value="30" min="0" max="100" step="1" id="fontsize" class="slider">
         </div>
 
-        <div style="width: 30px"></div> <!--  margin -->
-
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Font Color</div>
             <div style="height: 25px"></div> <!--  margin -->
             <input class="font_color" value="#FF0000" style="width:130px"/>
         </div>
-
-        <div style="width: 30px"></div> <!--  margin -->
 
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Diff Mode</div>
