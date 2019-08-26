@@ -598,6 +598,12 @@ $("#drop-zoneR").on("drop", function(e) {
     handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
 });
 
+// ignore drop outside of the drop area.
+$(document).on('drop dragover', function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+});
+
 $("#drop-zoneL").on("click", function(e) {
     const input = document.createElement('input');
     input.type = 'file';
