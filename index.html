@@ -8,6 +8,7 @@
     <script src="jquery.knob.js"></script>
     <script src="GlslCanvas.js"></script>
     <script src="FileSaver.js"></script>
+    <script src="paste.js"></script>
     
     <link rel="stylesheet" href="huebee.css">
     <script src="huebee.pkgd.js"></script>
@@ -128,6 +129,23 @@
             <input type="range" value="100" min="100" max="500" step="1" id="diffscale" style="opacity:0.3;" class="slider">
         </div>
 
+        <style>
+            .PasteAreaL:focus-within {
+                background:rgb(91, 88, 255);
+            }
+            .PasteAreaR:focus-within {
+                background:rgb(91, 88, 255);
+            }
+        </style>
+        <div style="display: flex; flex-direction:column; align-items: center; ">
+            <div style="text-align: center;">Click and Paste L↓</div>
+            <div class="PasteAreaL" style="height: 80%; width: 90%; border: thin solid #acacac;"></div>
+        </div>
+        <div style="display: flex; flex-direction:column; align-items: center; ">
+            <div style="text-align: center;">Click and Paste R↓</div>
+            <div class="PasteAreaR" style="height: 80%; width: 90%; border: thin solid #acacac;"></div>
+        </div>
+        
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
             <div style="text-align: center;">Save</div>
             <button style="
@@ -529,6 +547,32 @@ $("#diffscale").on("input", function(e) {
     const scale = parseFloat(value) / 100.0;
     glsl.setUniform("u_diffscale", scale);
     $("#diffscalelabel").text(value + " %");
+});
+
+// paste
+function imagePaste(sampler, dataURL) {
+    glsl.setUniform(sampler, null);
+    glsl.setUniform(sampler, dataURL);
+
+    const image = new Image();
+    image.onload = function() {
+        canvas.width = image.width;
+        canvas.height = image.height;
+    };
+    image.src = dataURL;
+}
+
+$('.PasteAreaL').pastableNonInputable();
+$('.PasteAreaL').on('pasteImage', function(ev, data) {
+    L_filename = "clipboard L";
+    updatePlaceHolder();
+    imagePaste("u_image_L", data.dataURL);
+});
+$('.PasteAreaR').pastableNonInputable();
+$('.PasteAreaR').on('pasteImage', function(ev, data) {
+    R_filename = "clipboard R";
+    updatePlaceHolder();
+    imagePaste("u_image_R", data.dataURL);
 });
 
 // on save

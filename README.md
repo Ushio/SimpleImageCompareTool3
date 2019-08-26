@@ -13,6 +13,8 @@ http://huebee.buzz/
 
 https://github.com/aterrien/jQuery-Knob
 
+https://github.com/layerssss/paste.js
+
 ## How to use
 ![demo](demo3.gif)
 
