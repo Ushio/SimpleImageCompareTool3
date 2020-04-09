@@ -146,6 +146,21 @@
             <div class="PasteAreaR" style="height: 80%; width: 90%; border: thin solid #acacac;"></div>
         </div>
         
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Loupe</div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <div class="onoffswitch">
+                <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="loupeMode" onchange="didChangeLoupeMode(this.checked)">
+                <label class="onoffswitch-label" for="loupeMode"></label>
+            </div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <div style="text-align: center; opacity:0.3;" id="loupeSizeLabel">150 px</div>
+            <input type="range" value="100" min="10" max="500" step="10" id="loupeSize" style="opacity:0.3;" class="slider">
+            <div style="height: 10px"></div> <!--  margin -->
+            <div style="text-align: center; opacity:0.3;" id="loupeScaleLabel">150 %</div>
+            <input type="range" value="150" min="100" max="500" step="5" id="loupeScale" style="opacity:0.3;" class="slider">
+        </div>
+
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
             <div style="text-align: center;">Save</div>
             <button style="
@@ -321,6 +336,10 @@ precision mediump float;
     uniform float u_diffmode;
     uniform float u_diffscale;
 
+    uniform float u_loupemode;
+    uniform float u_loupeSize;
+    uniform float u_loupeScale;
+
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
 
@@ -362,6 +381,39 @@ precision mediump float;
             float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
             gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
         }
+
+        // Loupe
+        float loupedelta = 0.9; 
+        if(0.0 < u_loupemode)
+        {
+            float size = u_loupeSize;
+            float scale = u_loupeScale;
+            
+            // center of loupe
+            vec2 lhs = u_mouselocation - direction * size * 0.6 /*bias*/;
+            {
+                float alpha = 1.0 - smoothstep( size * 0.5 - loupedelta, size * 0.5 + loupedelta, distance(fragcoord, lhs) );
+                vec2 localcoord = fragcoord - lhs;
+                vec2 sample = (localcoord / scale + u_mouselocation)  / u_resolution.xy;
+                gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(u_image_L, sample).rgb, alpha);
+            }
+
+            // center of loupe
+            vec2 rhs = u_mouselocation + direction * size * 0.6 /*bias*/;
+            {
+                float alpha = 1.0 - smoothstep( size * 0.5 - loupedelta, size * 0.5 + loupedelta, distance(fragcoord, rhs) );
+                vec2 localcoord = fragcoord - rhs;
+                vec2 sample = (localcoord / scale + u_mouselocation)  / u_resolution.xy;
+                // gl_FragColor.rgb = texture2D(u_image_R, sample).rgb;
+                gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(u_image_R, sample).rgb, alpha);
+            }
+            if( 0.0 < u_border ) {
+                float a = smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, lhs) - size * 0.5));
+                float b = smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, rhs) - size * 0.5));
+                gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, a * b);
+            }
+        }
+        
         gl_FragColor.a = 1.0;
     }
 `;
@@ -374,6 +426,8 @@ L_filename = "dogs-before";
 R_filename = "dogs-after";
 $('#Label_L_override').attr("placeholder", L_filename);
 $('#Label_R_override').attr("placeholder", R_filename);
+
+// Default Values
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
 glsl.setUniform("u_direction", 1.0, 0.0);
@@ -383,6 +437,9 @@ glsl.setUniform("u_border_color", 0.0, 0.0, 0.0);
 glsl.setUniform("u_diffmode", 0.0);
 glsl.setUniform("u_diffscale", 1.0);
 glsl.setUniform("u_direction_fixed", 0.0, 0.0);
+glsl.setUniform("u_loupeMode", 0.0);
+glsl.setUniform("u_loupeSize", 150.0);
+glsl.setUniform("u_loupeScale", 1.5);
 
 // Mouse Move & Mouse Up is need global event  -> html
 // Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
@@ -573,6 +630,28 @@ $('.PasteAreaR').on('pasteImage', function(ev, data) {
     R_filename = "clipboard R";
     updatePlaceHolder();
     imagePaste("u_image_R", data.dataURL);
+});
+
+function didChangeLoupeMode(value) {
+    glsl.setUniform("u_loupemode", value ? 1.0 : 0.0);
+    const op = value ? 1.0 : 0.3;
+    $("#loupeSizeLabel").css("opacity", op);
+    $("#loupeSize").css("opacity", op);
+
+    $("#loupeScaleLabel").css("opacity", op);
+    $("#loupeScale").css("opacity", op);
+}
+$("#loupeSize").on("input", function(e) {
+    const value = this.value;
+    const size = parseFloat(value);
+    glsl.setUniform("u_loupeSize", size);
+    $("#loupeSizeLabel").text(size + " px");
+});
+$("#loupeScale").on("input", function(e) {
+    const value = this.value;
+    const scale = parseFloat(value) / 100.0;
+    glsl.setUniform("u_loupeScale", scale);
+    $("#loupeScaleLabel").text(value + " %");
 });
 
 // on save
