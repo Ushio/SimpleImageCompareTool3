@@ -16,7 +16,14 @@ https://github.com/aterrien/jQuery-Knob
 https://github.com/layerssss/paste.js
 
 ## How to use
-![demo](demo3.gif)
+### Basic Usage
+![demo](demo.gif)
+
+### Diff Mode
+![demo](demo-diff.gif)
+
+### Loupe Mode
+![demo](demo-loupe.gif)
 
 ## TODO
 - 4 images
