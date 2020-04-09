@@ -1721,7 +1721,9 @@ var GlslCanvas = function () {
                 if (parsed[u].type === 'sampler2D') {
                     // For textures, we need to track texture units, so we have a special setter
                     // this.uniformTexture(parsed[u].name, parsed[u].value[0]);
-                    this.loadTexture(parsed[u].name, parsed[u].value[0]);
+                    
+                    // Force nearest filter ( ushio )
+                    this.loadTexture(parsed[u].name, parsed[u].value[0], { filtering: 'nearest' });
                 } else {
                     this.uniform(parsed[u].method, parsed[u].type, parsed[u].name, parsed[u].value);
                 }
