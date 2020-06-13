@@ -2,6 +2,15 @@
 Pages
 http://Ushio.github.io/SimpleImageCompareTool3
 
+## features 
+- Handy image comparation
+- Flexible wipe direction
+- Auto Text label layout
+- Diff mode
+- Loupe mode
+- Simple Post Processing (Scale, Gamma)
+- OpenExr Support
+
 ## dependencies 
 https://jquery.com/
 
