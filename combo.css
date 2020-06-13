@@ -1,0 +1,12 @@
+select {
+    padding: 3px 15px;
+    border: 1px solid #C7C7C7;
+    border-radius: 2px;
+    cursor: pointer;
+    outline: none;
+}
+
+/* 
+-webkit-appearance: none;
+-moz-appearance: none;
+ */

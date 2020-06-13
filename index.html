@@ -16,6 +16,7 @@
 
     <link rel="stylesheet" href="check.css">
     <link rel="stylesheet" href="slider.css">
+    <link rel="stylesheet" href="combo.css">
 
     <style>
         .dragover {
@@ -165,13 +166,22 @@
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;">
-            <div style="text-align: center;">Debug</div>
-            <button style="
-            background: red no-repeat center;
-            height: 100px;
-            width: 100px;
-            color: white;
-            " onclick="onDebug()"></button>
+            <div style="text-align: center;">Post Process</div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <div class="onoffswitch">
+                <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="PostProcess" onchange="didChangePostProcess(this.checked)">
+                <label class="onoffswitch-label" for="PostProcess"></label>
+            </div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <div style="text-align: center; opacity:0.3;" id="postScaleLabel">100 %</div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <input type="range" value="100" min="10" max="300" step="10" id="postScale" style="opacity:0.3;" class="slider">
+            <div style="height: 22px"></div> <!--  margin -->
+            <select id="GammaSelect" style="opacity:0.3;">
+                <option value="1.0">Gamma 1.0</option>
+                <option value="2.2" selected>Gamma 2.2</option>
+                <option value="2.4">Gamma 2.4</option>
+            </select>
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
@@ -353,6 +363,10 @@ precision mediump float;
     uniform float u_loupeSize;
     uniform float u_loupeScale;
 
+    uniform float u_postProcess;
+    uniform float u_postScale;
+    uniform float u_postGamma;
+
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
 
@@ -360,6 +374,17 @@ precision mediump float;
         float base = dot(p,        n);
         float x    = dot(fragcood, n);
         return x - base;
+    }
+
+    vec4 applyPost(vec4 c)
+    {
+        if( u_postProcess != 0.0 )
+        {
+            c.x = pow(u_postScale * c.x, 1.0 / u_postGamma);
+            c.y = pow(u_postScale * c.y, 1.0 / u_postGamma);
+            c.z = pow(u_postScale * c.z, 1.0 / u_postGamma);
+        }
+        return c;
     }
 
     void main() {
@@ -388,13 +413,7 @@ precision mediump float;
         float s = smoothstep(-delta, delta, b);
 
         gl_FragColor = mix(L, R, s);
-
-        if(0.0 < u_border) {
-            float bar = u_border * 0.5;
-            float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
-            gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
-        }
-
+        
         // Loupe
         float loupedelta = 0.9; 
         if(0.0 < u_loupemode)
@@ -417,14 +436,26 @@ precision mediump float;
                 float alpha = 1.0 - smoothstep( size * 0.5 - loupedelta, size * 0.5 + loupedelta, distance(fragcoord, rhs) );
                 vec2 localcoord = fragcoord - rhs;
                 vec2 sample = (localcoord / scale + u_mouselocation)  / u_resolution.xy;
-                // gl_FragColor.rgb = texture2D(u_image_R, sample).rgb;
                 gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(u_image_R, sample).rgb, alpha);
             }
+
+            gl_FragColor = applyPost(gl_FragColor);
+
             if( 0.0 < u_border ) {
                 float a = smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, lhs) - size * 0.5));
                 float b = smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, rhs) - size * 0.5));
                 gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, a * b);
             }
+        }
+        else
+        {
+            gl_FragColor = applyPost(gl_FragColor);
+        }
+
+        if(0.0 < u_border) {
+            float bar = u_border * 0.5;
+            float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
+            gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
         }
         
         gl_FragColor.a = 1.0;
@@ -453,6 +484,9 @@ glsl.setUniform("u_direction_fixed", 0.0, 0.0);
 glsl.setUniform("u_loupeMode", 0.0);
 glsl.setUniform("u_loupeSize", 150.0);
 glsl.setUniform("u_loupeScale", 2.0);
+glsl.setUniform("u_postProcess", 0.0);
+glsl.setUniform("u_postScale", 1.0);
+glsl.setUniform("u_postGamma", 2.2);
 
 // Mouse Move & Mouse Up is need global event  -> html
 // Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
@@ -654,6 +688,14 @@ function didChangeLoupeMode(value) {
     $("#loupeScaleLabel").css("opacity", op);
     $("#loupeScale").css("opacity", op);
 }
+function didChangePostProcess(value) {
+    glsl.setUniform("u_postProcess", value ? 1.0 : 0.0);
+    const op = value ? 1.0 : 0.3;
+    $("#postScaleLabel").css("opacity", op);
+    $("#postScale").css("opacity", op);
+    $("#GammaSelect").css("opacity", op);
+}
+
 $("#loupeSize").on("input", function(e) {
     const value = this.value;
     const size = parseFloat(value);
@@ -665,6 +707,17 @@ $("#loupeScale").on("input", function(e) {
     const scale = parseFloat(value) / 100.0;
     glsl.setUniform("u_loupeScale", scale);
     $("#loupeScaleLabel").text(value + " %");
+});
+
+$("#postScale").on("input", function(e) {
+    const value = this.value;
+    const scale = parseFloat(value) / 100.0;
+    glsl.setUniform("u_postScale", scale);
+    $("#postScaleLabel").text(value + " %");
+});
+$("#GammaSelect").change(function() {
+    let value = $(this).val();
+    glsl.setUniform("u_postGamma", parseFloat(value));
 });
 
 // on save
@@ -679,25 +732,25 @@ function onSave() {
     saveAs(imgdata, "compare.png");
 }
 
-function onDebug() {
-    glsl.setUniform("u_image_L", null);
+// function onDebug() {
+//     glsl.setUniform("u_image_L", null);
 
-    let raw = new Uint8Array([
-        0, 0, 0, 255, 
-        255, 0, 0, 255,
-        0, 255, 0, 255,
-        0, 0, 255, 255]);
-    let rawf = new Float32Array([
-        0, 0, 0, 1.0, 
-        Math.random(), 0.5, 0, 1.0,
-        0, 1.0, 0.5, 1.0,
-        0.5, 0, 1.0, 1.0,
+//     let raw = new Uint8Array([
+//         0, 0, 0, 255, 
+//         255, 0, 0, 255,
+//         0, 255, 0, 255,
+//         0, 0, 255, 255]);
+//     let rawf = new Float32Array([
+//         0, 0, 0, 1.0, 
+//         Math.random(), 0.5, 0, 1.0,
+//         0, 1.0, 0.5, 1.0,
+//         0.5, 0, 1.0, 1.0,
     
-        Math.random(), Math.random(), Math.random(), 1.0,
-        Math.random(), Math.random(), Math.random(), 1.0]
-    );
-    glsl.setUniform("u_image_L", { width:2, height:3, data:rawf });
-}
+//         Math.random(), Math.random(), Math.random(), 1.0,
+//         Math.random(), Math.random(), Math.random(), 1.0]
+//     );
+//     glsl.setUniform("u_image_L", { width:2, height:3, data:rawf });
+// }
 
 var dragoverHandler = function(e){
     e.preventDefault();
