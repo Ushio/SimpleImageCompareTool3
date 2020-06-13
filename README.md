@@ -15,6 +15,8 @@ https://github.com/aterrien/jQuery-Knob
 
 https://github.com/layerssss/paste.js
 
+https://github.com/disneyresearch/openexr-wrap-em
+
 ## How to use
 ### Basic Usage
 ![demo](demo.gif)

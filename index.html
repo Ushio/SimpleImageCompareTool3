@@ -9,6 +9,7 @@
     <script src="GlslCanvas.js"></script>
     <script src="FileSaver.js"></script>
     <script src="paste.js"></script>
+    <script src="exrapi_compiled.js"></script>
     
     <link rel="stylesheet" href="huebee.css">
     <script src="huebee.pkgd.js"></script>
@@ -727,19 +728,79 @@ var handleDrop = function(file, sampler, isLeft) {
     }
     updatePlaceHolder();
 
-    var reader = new FileReader();
+    let isExr = file.name.endsWith('.exr');
+
+    let reader = new FileReader();
     reader.onload = function(event) {
         glsl.setUniform(sampler, null);
-        glsl.setUniform(sampler, event.target.result);
 
-        const image = new Image();
-        image.onload = function() {
-            canvas.width = image.width;
-            canvas.height = image.height;
-        };
-        image.src = event.target.result;
+        if(isExr)
+        {
+            window.loadExr( event.target.result, function(exrImage) {
+                console.log(exrImage.width, exrImage.height);
+
+                let channels = exrImage.channels();
+                console.log(channels);
+                
+                let r = null;
+                let g = null;
+                let b = null;
+                for(let i = 0 ; i < channels.length ; i++)
+                {
+                    let ch = channels[i];
+                    let chlower = ch.toLowerCase();
+                    if(chlower.endsWith('r'))
+                    {
+                        r = exrImage.plane(ch);
+                    }
+                    else if(chlower.endsWith('g'))
+                    {
+                        g = exrImage.plane(ch);
+                    }
+                    else if(chlower.endsWith('b'))
+                    {
+                        b = exrImage.plane(ch);
+                    }
+                }
+
+                let nPixels = exrImage.width * exrImage.height;
+                let rgba = new Float32Array(nPixels * 4);
+                for (let i = 0; i < nPixels; i++) {
+                    let rval = r != null ? r[i] : 0.0;
+                    let gval = g != null ? g[i] : 0.0;
+                    let bval = b != null ? b[i] : 0.0;
+                    rgba[i * 4 + 0] = rval;
+                    rgba[i * 4 + 1] = gval;
+                    rgba[i * 4 + 2] = bval;
+                    rgba[i * 4 + 3] = 1.0;
+                }
+
+                glsl.setUniform(sampler, { width:exrImage.width, height:exrImage.height, data:rgba });
+
+                canvas.width = exrImage.width;
+                canvas.height = exrImage.height;
+            } );
+        }
+        else
+        {
+            glsl.setUniform(sampler, event.target.result);
+            const image = new Image();
+            image.onload = function() {
+                canvas.width = image.width;
+                canvas.height = image.height;
+            };
+            image.src = event.target.result;
+        }
     }
-    reader.readAsDataURL(file);
+    
+    if(isExr)
+    {
+        reader.readAsArrayBuffer(file);
+    }
+    else
+    {
+        reader.readAsDataURL(file);
+    }
 };
 $("#drop-zoneL").on("drop", function(e) {
     e.preventDefault();
