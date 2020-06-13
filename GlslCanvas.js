@@ -853,11 +853,20 @@ function parseUniforms(uniforms) {
                         }
                         // Array of structures
                         else if (_typeof(uniform[0]) === 'object') {
-                                for (u = 0; u < uniform.length; u++) {
-                                    // Set each struct in the array
-                                    parsed.push.apply(parsed, toConsumableArray(parseUniforms(uniform[u], name + '[' + u + ']')));
+                            for (u = 0; u < uniform.length; u++) {
+                                // Set each struct in the array
+                                if(uniform[u] && typeof uniform[u] === 'object') {
+                                    parsed.push({
+                                        type: 'sampler2D',
+                                        method: '1i',
+                                        name: name,
+                                        value: uniform
+                                    });
+                                    break;
                                 }
+                                parsed.push.apply(parsed, toConsumableArray(parseUniforms(uniform[u], name + '[' + u + ']')));
                             }
+                        }
             }
             // Boolean
             else if (typeof uniform === 'boolean') {
@@ -1282,8 +1291,20 @@ var Texture = function () {
             }
             // Raw image buffer
             else if (this.sourceType === 'data') {
+                if( this.source.BYTES_PER_ELEMENT == 4)
+                {
+                    var ext = this.gl.getExtension('OES_texture_float');
+                    if(!ext)
+                    {
+                        console.log("OES_texture_float is not supported.");
+                    }
+                    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.width, this.height, 0, this.gl.RGBA, this.gl.FLOAT, this.source);
+                }
+                else
+                {
                     this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.width, this.height, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.source);
                 }
+            }
             this.trigger('loaded', this);
         }
 
@@ -1722,7 +1743,29 @@ var GlslCanvas = function () {
                     // For textures, we need to track texture units, so we have a special setter
                     // this.uniformTexture(parsed[u].name, parsed[u].value[0]);
                     
+                    // test
                     // Force nearest filter ( ushio )
+                    // console.log(type);
+                    // if ( parsed[u].value[0] === "debug" )
+                    // {
+                    //     console.log("this is test");
+                    //     let raw = new Uint8Array([
+                    //         0, 0, 0, 255, 
+                    //         255, 0, 0, 255,
+                    //         0, 255, 0, 255,
+                    //         0, 0, 255, 255]);
+                    //     let rawf = new Float32Array([
+                    //         0, 0, 0, 1.0, 
+                    //         1.0, 0.5, 0, 1.0,
+                    //         0, 1.0, 0.5, 1.0,
+                    //         0.5, 0, 1.0, 1.0]
+                    //     );
+                    //     this.loadTexture(parsed[u].name, { width:2, height:2, data:rawf }, { filtering: 'nearest' });
+                    // }
+                    // else
+                    // {
+                    //     this.loadTexture(parsed[u].name, parsed[u].value[0], { filtering: 'nearest' });
+                    // }
                     this.loadTexture(parsed[u].name, parsed[u].value[0], { filtering: 'nearest' });
                 } else {
                     this.uniform(parsed[u].method, parsed[u].type, parsed[u].name, parsed[u].value);
