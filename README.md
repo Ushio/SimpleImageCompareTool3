@@ -10,6 +10,7 @@ http://Ushio.github.io/SimpleImageCompareTool3
 - Loupe mode
 - Simple Post Processing (Scale, Gamma)
 - OpenExr Support
+- (Experimential) Detecting Bias in Monte Carlo Renderers using Welch’s t-test ( http://jcgt.org/published/0009/02/01/ )
 
 ## dependencies 
 https://jquery.com/

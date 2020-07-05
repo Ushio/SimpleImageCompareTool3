@@ -185,7 +185,21 @@
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
+            <div style="text-align: center; opacity:0.3;" id="WelchLabel"> Welch (exr only)</div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <button style="
+                background: url('welch.svg') no-repeat center;
+                height: 80px;
+                width: 80px;
+                color: white;
+                opacity:0.3;
+            " onclick="onWelch()" id="WelchButton"></button>
+            <div style="height: 25px"></div> <!--  margin -->
+            <input type="range" value="0" min="0" max="100" step="1" id="WelchSlider" style="opacity:0.3;" class="slider">
+        </div>
+        <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Save</div>
+            <div style="height: 10px"></div> <!--  margin -->
             <button style="
                 background: url('save.svg') no-repeat center;
                 height: 100px;
@@ -367,8 +381,11 @@ precision mediump float;
     uniform float u_postScale;
     uniform float u_postGamma;
 
+    uniform float u_welchOverlay;
+
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
+    uniform sampler2D u_image_welch;
 
     float border(vec2 fragcood, vec2 n, vec2 p) {
         float base = dot(p,        n);
@@ -457,6 +474,13 @@ precision mediump float;
             float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
             gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
         }
+
+        // welch
+        if( 0.0 < u_welchOverlay )
+        {
+            vec3 welch = texture2D( u_image_welch, st ).rgb;
+            gl_FragColor.rgb = mix( gl_FragColor.rgb, welch, u_welchOverlay );
+        }
         
         gl_FragColor.a = 1.0;
     }
@@ -470,6 +494,12 @@ L_filename = "dogs-before";
 R_filename = "dogs-after";
 $('#Label_L_override').attr("placeholder", L_filename);
 $('#Label_R_override').attr("placeholder", R_filename);
+
+// For welch
+var floatImageWidth  = 0;
+var floatImageHeight = 0;
+var floatImageL = null;
+var floatImageR = null;
 
 // Default Values
 glsl.setUniform("u_image_L", "dogs-before.jpg");
@@ -487,6 +517,19 @@ glsl.setUniform("u_loupeScale", 2.0);
 glsl.setUniform("u_postProcess", 0.0);
 glsl.setUniform("u_postScale", 1.0);
 glsl.setUniform("u_postGamma", 2.2);
+glsl.setUniform("u_welchOverlay", 0.0);
+
+{
+    let nPixels = 2 * 2;
+    let rgba = new Float32Array(nPixels * 4);
+    for (let i = 0; i < nPixels; i++) {
+        rgba[i * 4 + 0] = 1.0;
+        rgba[i * 4 + 1] = 1.0;
+        rgba[i * 4 + 2] = 1.0;
+        rgba[i * 4 + 3] = 1.0;
+    }
+    glsl.setUniform("u_image_welch", { width:2, height:2, data:rgba });
+}
 
 // Mouse Move & Mouse Up is need global event  -> html
 // Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
@@ -720,6 +763,13 @@ $("#GammaSelect").change(function() {
     glsl.setUniform("u_postGamma", parseFloat(value));
 });
 
+$("#WelchSlider").on("input", function(e) {
+    const value = this.value;
+    const scale = parseFloat(value) / 100.0;
+    glsl.setUniform("u_welchOverlay", scale);
+});
+
+
 // on save
 function onSave() {
     compositecanvas.width = canvas.width;
@@ -832,6 +882,17 @@ var handleDrop = function(file, sampler, isLeft) {
 
                 canvas.width = exrImage.width;
                 canvas.height = exrImage.height;
+
+                if(isLeft)
+                {
+                    floatImageL = rgba;
+                }
+                else
+                {
+                    floatImageR = rgba;
+                }
+                floatImageWidth = exrImage.width;
+                floatImageHeight = exrImage.height;
             } );
         }
         else
@@ -843,6 +904,17 @@ var handleDrop = function(file, sampler, isLeft) {
                 canvas.height = image.height;
             };
             image.src = event.target.result;
+
+            if(isLeft)
+            {
+                floatImageL = null;
+            }
+            else
+            {
+                floatImageR = null;
+            }
+            floatImageWidth = 0;
+            floatImageHeight = 0;
         }
     }
     
@@ -888,6 +960,211 @@ $("#drop-zoneR").on("click", function(e) {
     };
     input.click();
 });
+
+function avariableWelch()
+{
+    if( floatImageWidth !== 0 && floatImageHeight !== 0 && floatImageL !== null && floatImageR !== null && floatImageL.length === floatImageR.length )
+    {
+        return true;
+    }
+    return false;
+}
+
+function updateWelchUI()
+{
+    var enable = avariableWelch();
+    const op = enable ? 1.0 : 0.3;
+    $("#WelchLabel").css("opacity", op);
+    $("#WelchButton").css("opacity", op);
+    $("#WelchSlider").css("opacity", op);
+}
+setInterval("updateWelchUI()", 500); 
+
+class OnlineVariance {
+    constructor() {
+        this._count = 0;
+        this._mean = 0;
+        this._M2 = 0;
+    }
+    addSample( newValue ) {
+        this._count++;
+        let delta = newValue - this._mean;
+        this._mean += delta / this._count;
+        let delta2 = newValue - this._mean;
+        this._M2 += delta * delta2;
+    }
+    mean() {
+        return this._mean;
+    }
+    sampleVariance() {
+        if (this._count == 0)
+        {
+            return 0.0;
+        }
+        return this._M2 / this._count;
+    }
+    unbiasedVariance()  {
+        if (this._count === 0)
+        {
+            return 0.0;
+        }
+        return this._M2 / (this._count - 1);
+    }
+    sampleCount() {
+        return this._count;
+    }
+}
+function sqr(x) {
+    return x * x;
+}
+function gauss_Pnu(t)
+{
+    let tt = t > 0 ? t : -t;
+    tt = tt / Math.sqrt(2.0);
+
+    const x = 1.0 / (1.0 + 0.47047 * tt);
+    const erf = 1.0 - x * (0.3480242
+        + x * (-0.0958798
+            + 0.7478556 * x))
+        * Math.exp(-tt * tt);
+    return 1.0 - erf;
+}
+// color coding
+// input float between 0 and 1
+// output colour ramp
+function viridis_quintic( x )     
+{
+    x = Math.min(1.0, x);
+    const x2 = x * x;
+    const x3 = x2 * x;
+    const x4 = x2 * x2;
+    const x5 = x3 * x2;
+    let col = [0.0, 0.0, 0.0];
+    col[0] = +0.280268003 - 0.143510503 * x + 2.225793877 * x2 - 14.815088879 * x3 + 25.212752309 * x4 - 11.772589584 * x5;
+    col[1] = -0.002117546 + 1.617109353 * x - 1.909305070 * x2 + 2.701152864 * x3 - 1.685288385 * x4 + 0.178738871 * x5;
+    col[2] = +0.300805501 + 2.614650302 * x - 12.019139090 * x2 + 28.933559110 * x3 - 33.491294770 * x4 + 13.762053843 * x5;
+    return col;
+}
+
+function onWelch()
+{
+    if( avariableWelch() )
+    {
+        // ok
+    }
+    else
+    {
+        return;
+    }
+
+    // console.log("onWelch");
+
+    let onlineVar = new OnlineVariance();
+    onlineVar.addSample(1);
+    onlineVar.addSample(3);
+    onlineVar.addSample(4);
+
+    let tileSize = 32;
+    let tileCountX = floatImageWidth / tileSize;
+    let tileCountY = floatImageHeight / tileSize;
+
+    // Image2DRGBA32 pImage;
+    // pImage.allocate(tileCountX, tileCountY);
+    let nPixels = floatImageWidth * floatImageHeight;
+    let rgba = new Float32Array(nPixels * 4);
+
+    for (let yi = 0; yi < tileCountY; ++yi)
+    {
+        for (let xi = 0; xi < tileCountX; ++xi)
+        {
+            let minP = 1.0;
+
+            // per compornent
+            for(let i = 0 ; i < 3 ; ++i)
+            {
+                let va1 = new OnlineVariance();
+                let va2 = new OnlineVariance();
+                for(let y = 0; y < tileSize; ++y)
+                {
+                    for (let x = 0; x < tileSize; ++x)
+                    {
+                        let sX = xi * tileSize + x;
+                        let sY = yi * tileSize + y;
+                        let sIndex = sY * floatImageWidth + sX;
+                        va1.addSample( floatImageL[sIndex * 4 + i] );
+                        va2.addSample( floatImageR[sIndex * 4 + i] );
+                    }
+                }
+
+                let SEwSquared =
+                    va1.unbiasedVariance() / va1.sampleCount()
+                    +
+                    va2.unbiasedVariance() / va2.sampleCount();
+                let SEw = Math.sqrt( SEwSquared );
+
+                // final p value
+                let p;
+
+                if ( SEw < Number.EPSILON )
+                {
+                    p = 1.0;
+                }
+                else
+                {
+                    // t value
+                    let t = ( va1.mean() - va2.mean() ) / SEw;
+
+                    // TODO 
+                    // // Degree of Freedom
+                    // let nuf =
+                    //     sqr(SEwSquared) /
+                    //     (
+                    //         sqr( va1.unbiasedVariance() ) / ( sqr( va1.sampleCount() ) * ( va1.sampleCount() - 1 ) )
+                    //         +                                      
+                    //         sqr( va2.unbiasedVariance() ) / ( sqr( va2.sampleCount() ) * ( va2.sampleCount() - 1 ) )
+                    //     );
+                    // let nu = Math.roundf( nuf );
+
+                    // if( nu < 20 )
+                    // {
+                    //     p = 2.f * t_Pnu_half(-std::fabs(t), nu );
+                    // }
+                    // else
+                    // {
+                    //     p = gauss_Pnu( t );
+                    // }
+
+                    p = gauss_Pnu( t );
+                }
+
+                minP = Math.min(minP, p);
+            }
+
+            // glm::vec3 color;
+            // viridis_quintic(p, glm::value_ptr(color));
+            // pImage(xi, yi) = glm::vec4(color, 1.0f);
+            var color = viridis_quintic( minP );
+            // let mean = va1.mean();
+            for(let y = 0; y < tileSize; ++y)
+            {
+                for (let x = 0; x < tileSize; ++x)
+                {
+                    let sX = xi * tileSize + x;
+                    let sY = yi * tileSize + y;
+                    let dIndex = sY * floatImageWidth + sX;
+                    rgba[dIndex * 4]   = color[0];
+                    rgba[dIndex * 4+1] = color[1];
+                    rgba[dIndex * 4+2] = color[2];
+                    rgba[dIndex * 4+3] = 1.0;
+                }
+            }
+        }
+    }
+    glsl.setUniform("u_image_welch", { width:floatImageWidth, height:floatImageHeight, data:rgba });
+
+    $("#WelchSlider").val(100);
+    glsl.setUniform("u_welchOverlay", 1.0);
+}
 
 </script>
 </body>
