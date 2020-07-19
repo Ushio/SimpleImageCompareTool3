@@ -218,11 +218,16 @@
 
 <a href="https://github.com/Ushio/SimpleImageCompareTool3">Github Repo</a>
 
-<p>Welch Notes</p>
-<ul>
-<li>Violet is danger area. But all Violet is won't necessarily mean wrong.</li>
-<li>Uniform-distribution of p-value is good. but there are some exceptions on high match tile e.g. EnvMap. it could cause unbalanced distribution. </li>
-</ul>
+<details>
+    <summary>Welch Notes</summary>
+    <ul>
+    <li>Violet is danger area. But all Violet is won't necessarily mean wrong.</li>
+    <li>Uniform-distribution of p-value is good. but there are some exceptions on high match tile e.g. EnvMap. it could cause unbalanced distribution. </li>
+    <li>You could capture pretty faint errors like this ( metallic parameter 0.00 vs 0.01 )</li>
+    </ul>
+    
+    <img src="welch_example.png"></img>
+</details>
 
 <script>
 'use strict';
@@ -1117,7 +1122,7 @@ function onWelch()
     onlineVar.addSample(3);
     onlineVar.addSample(4);
 
-    let tileSize = 32;
+    let tileSize = 30;
     let tileCountX = Math.floor(floatImageWidth / tileSize);
     let tileCountY = Math.floor(floatImageHeight / tileSize);
 
