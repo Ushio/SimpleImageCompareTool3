@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="slider.css">
     <link rel="stylesheet" href="combo.css">
 
+    <script src="Chart.js"></script>
+
     <style>
         .dragover {
             background:rgb(193, 225, 255);
@@ -184,9 +186,9 @@
             </select>
         </div>
 
-        <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto;">
+        <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto; background-image:url(gradient.png); background-size: 100% 23%; background-repeat: no-repeat;">
             <div style="text-align: center; opacity:0.3;" id="WelchLabel"> Welch (exr only)</div>
-            <div style="height: 10px"></div> <!--  margin -->
+            <div style="height: 14px"></div> <!--  margin -->
             <button style="
                 background: url('welch.svg') no-repeat center;
                 height: 80px;
@@ -194,8 +196,12 @@
                 color: white;
                 opacity:0.3;
             " onclick="onWelch()" id="WelchButton"></button>
-            <div style="height: 25px"></div> <!--  margin -->
+            <div style="height: 20px"></div> <!--  margin -->
             <input type="range" value="0" min="0" max="100" step="1" id="WelchSlider" style="opacity:0.3;" class="slider">
+        </div>
+        <div style="display: flex; flex-direction:column; align-items: center; flex-basis: 250px; height: 160px; display: none;" id="pUI">
+            <canvas id="wcanvas" style="max-width:100%; height:auto; margin: -6px;"></canvas>
+            <!-- background-color: aqua;  -->
         </div>
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Save</div>
@@ -211,6 +217,12 @@
 </div>
 
 <a href="https://github.com/Ushio/SimpleImageCompareTool3">Github Repo</a>
+
+<p>Welch Notes</p>
+<ul>
+<li>Violet is danger area. But all Violet is won't necessarily mean wrong.</li>
+<li>Uniform-distribution of p-value is good. but there are some exceptions on high match tile e.g. EnvMap. it could cause unbalanced distribution. </li>
+</ul>
 
 <script>
 'use strict';
@@ -1046,6 +1058,49 @@ function viridis_quintic( x )
     return col;
 }
 
+let pHistgram = [];
+
+const wcanvas = document.getElementById('wcanvas');
+wcanvas.width = 300;
+wcanvas.height = 215;
+const wctx = wcanvas.getContext('2d');
+
+function toFixed(value, precision) {
+    var power = Math.pow(10, precision || 0);
+    return String(Math.round(value * power) / power);
+}
+let labels = []
+for(let i = 0 ; i < 10 ; i++)
+{
+    labels.push(toFixed(i / 10.0, 2) + "-" + toFixed((i + 1) / 10.0, 2) );
+    // pHistgram.push(Math.random() * 100.0);
+    pHistgram.push(0);
+}
+Chart.defaults.global.animation.duration = 300;
+let chart = new Chart(wctx, {
+    type: 'horizontalBar',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'p Value Histgram',
+            backgroundColor: 'rgb(255, 99, 132)',
+            borderColor: 'rgb(255, 99, 132)',
+            data: pHistgram
+        }]
+    },
+
+    // Configuration options go here
+    options: {
+        scales: {
+            xAxes: [{
+                ticks: {
+                    beginAtZero: true
+                }
+            }]
+        }
+    }
+});
+
 function onWelch()
 {
     if( avariableWelch() )
@@ -1057,21 +1112,22 @@ function onWelch()
         return;
     }
 
-    // console.log("onWelch");
-
     let onlineVar = new OnlineVariance();
     onlineVar.addSample(1);
     onlineVar.addSample(3);
     onlineVar.addSample(4);
 
     let tileSize = 32;
-    let tileCountX = floatImageWidth / tileSize;
-    let tileCountY = floatImageHeight / tileSize;
+    let tileCountX = Math.floor(floatImageWidth / tileSize);
+    let tileCountY = Math.floor(floatImageHeight / tileSize);
 
-    // Image2DRGBA32 pImage;
-    // pImage.allocate(tileCountX, tileCountY);
     let nPixels = floatImageWidth * floatImageHeight;
     let rgba = new Float32Array(nPixels * 4);
+
+    for(let i = 0 ; i < 10 ; ++i)
+    {
+        pHistgram[i] = 0;
+    }
 
     for (let yi = 0; yi < tileCountY; ++yi)
     {
@@ -1115,7 +1171,7 @@ function onWelch()
                     let t = ( va1.mean() - va2.mean() ) / SEw;
 
                     // TODO 
-                    // // Degree of Freedom
+                    // Degree of Freedom
                     // let nuf =
                     //     sqr(SEwSquared) /
                     //     (
@@ -1123,7 +1179,8 @@ function onWelch()
                     //         +                                      
                     //         sqr( va2.unbiasedVariance() ) / ( sqr( va2.sampleCount() ) * ( va2.sampleCount() - 1 ) )
                     //     );
-                    // let nu = Math.roundf( nuf );
+                    // let nu = Math.round( nuf );
+                    // console.log(nu);
 
                     // if( nu < 20 )
                     // {
@@ -1135,6 +1192,11 @@ function onWelch()
                     // }
 
                     p = gauss_Pnu( t );
+                    
+                    // calc histgram
+                    const index = Math.min(Math.floor(p * 10.0), 9);
+                    // console.log(p + "/" + index);
+                    pHistgram[index]++;
                 }
 
                 minP = Math.min(minP, p);
@@ -1160,10 +1222,15 @@ function onWelch()
             }
         }
     }
+
+    // console.log(pHistgram);
+    chart.update();
+
     glsl.setUniform("u_image_welch", { width:floatImageWidth, height:floatImageHeight, data:rgba });
 
     $("#WelchSlider").val(100);
     glsl.setUniform("u_welchOverlay", 1.0);
+    $("#pUI").show();
 }
 
 </script>
