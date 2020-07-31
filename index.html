@@ -400,6 +400,9 @@ precision mediump float;
 
     uniform float u_welchOverlay;
 
+    uniform float u_hilightL;
+    uniform float u_hilightR;
+
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
     uniform sampler2D u_image_welch;
@@ -421,16 +424,36 @@ precision mediump float;
         return c;
     }
 
+    vec4 GetImageL(vec2 st)
+    {
+        return texture2D(u_image_L, st);
+    }
+    vec4 GetImageR(vec2 st)
+    {
+        return texture2D(u_image_R, st);
+    }
+    vec4 addHilightL(vec4 c)
+    {
+        return mix(c, vec4(1.0), u_hilightL);
+    }
+    vec4 addHilightR(vec4 c)
+    {
+        return mix(c, vec4(1.0), u_hilightR);
+    }
+
     void main() {
         vec2 fragcoord = gl_FragCoord.xy;
         vec2 st = fragcoord / u_resolution.xy;
 
-        vec4 L = texture2D(u_image_L, st);
-        vec4 R = texture2D(u_image_R, st);
+        vec4 L = GetImageL(st);
+        vec4 R = GetImageR(st);
 
         if(0.0 < u_diffmode) {
             L = abs(L - R) * u_diffscale;
         }
+
+        L = addHilightL(L);
+        R = addHilightR(R);
 
         if(0.1 < mod(u_border, 2.0)) {
             fragcoord += vec2(0.5);
@@ -461,7 +484,7 @@ precision mediump float;
                 float alpha = 1.0 - smoothstep( size * 0.5 - loupedelta, size * 0.5 + loupedelta, distance(fragcoord, lhs) );
                 vec2 localcoord = fragcoord - lhs;
                 vec2 sample = (localcoord / scale + u_mouselocation)  / u_resolution.xy;
-                gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(u_image_L, sample).rgb, alpha);
+                gl_FragColor.rgb = mix(gl_FragColor.rgb, GetImageL(sample).rgb, alpha);
             }
 
             // center of loupe
@@ -470,7 +493,7 @@ precision mediump float;
                 float alpha = 1.0 - smoothstep( size * 0.5 - loupedelta, size * 0.5 + loupedelta, distance(fragcoord, rhs) );
                 vec2 localcoord = fragcoord - rhs;
                 vec2 sample = (localcoord / scale + u_mouselocation)  / u_resolution.xy;
-                gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(u_image_R, sample).rgb, alpha);
+                gl_FragColor.rgb = mix(gl_FragColor.rgb, GetImageR(sample).rgb, alpha);
             }
 
             gl_FragColor = applyPost(gl_FragColor);
@@ -518,6 +541,16 @@ var floatImageHeight = 0;
 var floatImageL = null;
 var floatImageR = null;
 
+// for flexible drop
+let glu_directionX = 1;
+let glu_directionY = 0;
+let glu_direction_fixedX = 0;
+let glu_direction_fixedY = 0;
+let glu_mouselocationX = canvas.width * 0.5;
+let glu_mouselocationY = canvas.height * 0.5;
+let mouseLocationXLocalAlways = 0;
+let mouseLocationYLocalAlways = 0;
+
 // Default Values
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
@@ -535,6 +568,9 @@ glsl.setUniform("u_postProcess", 0.0);
 glsl.setUniform("u_postScale", 1.0);
 glsl.setUniform("u_postGamma", 2.2);
 glsl.setUniform("u_welchOverlay", 0.0);
+glsl.setUniform("u_hilightL", 0.0);
+glsl.setUniform("u_hilightR", 0.0);
+
 
 {
     let nPixels = 2 * 2;
@@ -561,22 +597,28 @@ $("html").mouseup(function() {
 });
 
 function updateMouseLocation(e) {
+    {
+        // Coordinate transform
+        // https://qiita.com/yukiB/items/cc533fbbf3bb8372a924#2-jquery%E3%81%AEoffset%E3%81%A8eventpagexy%E3%82%92%E4%BD%BF%E7%94%A8
+        const offset = $('#glcanvas').offset();
+        const x = e.pageX - offset.left;
+        const y = e.pageY - offset.top;
+        e.offsetX = x;
+        e.offsetY = y;
+    }
+    const scale = canvas.width / canvas.clientWidth;
+    const x = e.offsetX * scale;
+    const y = canvas.height - e.offsetY * scale;
     if(down) {
-        const scale = canvas.width / canvas.clientWidth;
-        const x = e.offsetX * scale;
-        const y = canvas.height - e.offsetY * scale;
+        glu_mouselocationX = x;
+        glu_mouselocationY = y;
         glsl.setUniform("u_mouselocation", Math.round(x), Math.round(y));
     }
+    mouseLocationXLocalAlways = x;
+    mouseLocationYLocalAlways = y;
 }
 
 $("html").mousemove(function(e) {
-    // Coordinate transform
-    // https://qiita.com/yukiB/items/cc533fbbf3bb8372a924#2-jquery%E3%81%AEoffset%E3%81%A8eventpagexy%E3%82%92%E4%BD%BF%E7%94%A8
-    var offset = $('#glcanvas').offset();
-    var x = e.pageX - offset.left;
-    var y = e.pageY - offset.top;
-    e.offsetX = x;
-    e.offsetY = y;
     updateMouseLocation(e);
 });
 $(EVENT_VIEW).mouseleave(updateMouseLocation);
@@ -599,12 +641,17 @@ $(".direction_dial").attr("value", DIAL_STEPS / 4).knob({
         if(angle <= -180.0) {
             angle += 360.0;
         }
-        glsl.setUniform("u_direction", Math.cos(radian), Math.sin(radian));
+        glu_directionX = Math.cos(radian);
+        glu_directionY = Math.sin(radian);
+        glsl.setUniform("u_direction", glu_directionX, glu_directionY);
         
         // move to free mode
         $('#fixed_direction').val("");
         $("#dial_container").css("opacity", 1.0);
-        glsl.setUniform("u_direction_fixed", 0.0, 0.0);
+
+        glu_direction_fixedX = 0;
+        glu_direction_fixedY = 0;
+        glsl.setUniform("u_direction_fixed", glu_direction_fixedX, glu_direction_fixedY);
     }
 });
 
@@ -612,34 +659,33 @@ $("#fixed_direction").on("change", function(e){
     const value = this.value;
     if(value) {
         $("#dial_container").css("opacity", 0.3);
-
-        glsl.setUniform("u_mouselocation", canvas.width * 0.5, canvas.height * 0.5);
+        glu_mouselocationX = canvas.width * 0.5;
+        glu_mouselocationY = canvas.height * 0.5;
+        glsl.setUniform("u_mouselocation", glu_mouselocationX , glu_mouselocationY);
 
         const L = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
         if(value === "↘") {
-            let x = canvas.height / L;
-            let y = -canvas.width / L;
-            glsl.setUniform("u_direction_fixed", x, y);
+            glu_direction_fixedX = canvas.height / L;
+            glu_direction_fixedY = -canvas.width / L;
         }
         if(value === "↗") {
-            let x = canvas.height / L;
-            let y = canvas.width / L;
-            glsl.setUniform("u_direction_fixed", x, y);
+            glu_direction_fixedX = canvas.height / L;
+            glu_direction_fixedY = canvas.width / L;
         }
         if(value === "↖") {
-            let x = -canvas.height / L;
-            let y = canvas.width / L;
-            glsl.setUniform("u_direction_fixed", x, y);
+            glu_direction_fixedX = -canvas.height / L;
+            glu_direction_fixedY = canvas.width / L;
         }
         if(value === "↙") {
-            let x = -canvas.height / L;
-            let y = -canvas.width / L;
-            glsl.setUniform("u_direction_fixed", x, y);
+            glu_direction_fixedX = -canvas.height / L;
+            glu_direction_fixedY = -canvas.width / L;
         }
     } else {
-        glsl.setUniform("u_direction_fixed", 0.0, 0.0);
+        glu_direction_fixedX = 0;
+        glu_direction_fixedY = 0;
         $("#dial_container").css("opacity", 1.0);
     }
+    glsl.setUniform("u_direction_fixed", glu_direction_fixedX, glu_direction_fixedY);
     invokeRender();
 });
 
@@ -955,10 +1001,71 @@ $("#drop-zoneR").on("drop", function(e) {
     handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
 });
 
-// ignore drop outside of the drop area.
-$(document).on('drop dragover', function (e) {
+function sqr(x) { return x * x; }
+function mouseBorder()
+{
+    const useFixed = 0.0 < (sqr(glu_direction_fixedX) + sqr(glu_direction_fixedY));
+    let dirX = useFixed ? glu_direction_fixedX : glu_directionX;
+    let dirY = useFixed ? glu_direction_fixedY : glu_directionY;
+    let base = glu_mouselocationX * dirX + glu_mouselocationY * dirY;
+    let x    = mouseLocationXLocalAlways * dirX + mouseLocationYLocalAlways * dirY;
+    let border = x - base;
+    return border; 
+}
+
+
+$(document).on('dragover drop', function (e) {
+    // update location for drag and drop
+    updateMouseLocation(e);
+
+    // ignore drop outside of the drop area.
     e.stopPropagation();
     e.preventDefault();
+    
+    return false;
+});
+
+const hilight = 0.4;
+
+// Control hilight
+$("#uicanvas").on('dragover', function (e) {
+    let border = mouseBorder();
+    // console.log(border);
+    if(border < 0.0)
+    {
+        glsl.setUniform("u_hilightL", hilight);
+        glsl.setUniform("u_hilightR", 0.0);
+    }
+    else
+    {
+        glsl.setUniform("u_hilightL", 0);
+        glsl.setUniform("u_hilightR", hilight);
+    }
+    
+    e.preventDefault();
+});
+
+$("#uicanvas").on('drop', function (e) {
+    let border = mouseBorder();
+    if(border < 0.0)
+    {
+        handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
+    }
+    else
+    {
+        handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+    }
+
+    glsl.setUniform("u_hilightL", 0);
+    glsl.setUniform("u_hilightR", 0);
+    
+    e.stopPropagation();
+    e.preventDefault();
+});
+$("#uicanvas").on("dragleave", function (e) {
+    glsl.setUniform("u_hilightL", 0);
+    glsl.setUniform("u_hilightR", 0);
+    updateMouseLocation(e);
 });
 
 $("#drop-zoneL").on("click", function(e) {
