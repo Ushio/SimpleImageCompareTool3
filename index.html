@@ -535,6 +535,8 @@ R_filename = "dogs-after";
 $('#Label_L_override').attr("placeholder", L_filename);
 $('#Label_R_override').attr("placeholder", R_filename);
 
+const HILIGHT_VALUE = 0.4;
+
 // For welch
 var floatImageWidth  = 0;
 var floatImageHeight = 0;
@@ -868,6 +870,16 @@ function onSave() {
 var dragoverHandler = function(e){
     e.preventDefault();
     $(this).addClass("dragover");
+
+    let objectID = $(this).attr("id");
+    if(objectID === "drop-zoneL")
+    {
+        glsl.setUniform("u_hilightL", HILIGHT_VALUE);
+    }
+    else if(objectID == "drop-zoneR")
+    {
+        glsl.setUniform("u_hilightR", HILIGHT_VALUE);
+    }
 };
 $("#drop-zoneL").on("dragover", dragoverHandler);
 $("#drop-zoneR").on("dragover", dragoverHandler);
@@ -875,6 +887,16 @@ $("#drop-zoneR").on("dragover", dragoverHandler);
 var dragleaveHandler = function(e){
     e.preventDefault();
     $(this).removeClass("dragover");
+
+    let objectID = $(this).attr("id");
+    if(objectID === "drop-zoneL")
+    {
+        glsl.setUniform("u_hilightL", 0);
+    }
+    else if(objectID == "drop-zoneR")
+    {
+        glsl.setUniform("u_hilightR", 0);
+    }
 };
 $("#drop-zoneL").on("dragleave", dragleaveHandler);
 $("#drop-zoneR").on("dragleave", dragleaveHandler);
@@ -994,11 +1016,17 @@ $("#drop-zoneL").on("drop", function(e) {
     e.preventDefault();
     $(this).removeClass("dragover");
     handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
+
+    glsl.setUniform("u_hilightL", 0);
+    glsl.setUniform("u_hilightR", 0);
 });
 $("#drop-zoneR").on("drop", function(e) {
     e.preventDefault();
     $(this).removeClass("dragover");
     handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+
+    glsl.setUniform("u_hilightL", 0);
+    glsl.setUniform("u_hilightR", 0);
 });
 
 function sqr(x) { return x * x; }
@@ -1025,21 +1053,19 @@ $(document).on('dragover drop', function (e) {
     return false;
 });
 
-const hilight = 0.4;
-
 // Control hilight
 $("#uicanvas").on('dragover', function (e) {
     let border = mouseBorder();
     // console.log(border);
     if(border < 0.0)
     {
-        glsl.setUniform("u_hilightL", hilight);
+        glsl.setUniform("u_hilightL", HILIGHT_VALUE);
         glsl.setUniform("u_hilightR", 0.0);
     }
     else
     {
         glsl.setUniform("u_hilightL", 0);
-        glsl.setUniform("u_hilightR", hilight);
+        glsl.setUniform("u_hilightR", HILIGHT_VALUE);
     }
     
     e.preventDefault();
