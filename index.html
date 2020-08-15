@@ -1015,7 +1015,10 @@ var handleDrop = function(file, sampler, isLeft) {
 $("#drop-zoneL").on("drop", function(e) {
     e.preventDefault();
     $(this).removeClass("dragover");
-    handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
+    if(0 < e.originalEvent.dataTransfer.files.length)
+    {
+        handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
+    }
 
     glsl.setUniform("u_hilightL", 0);
     glsl.setUniform("u_hilightR", 0);
@@ -1023,7 +1026,10 @@ $("#drop-zoneL").on("drop", function(e) {
 $("#drop-zoneR").on("drop", function(e) {
     e.preventDefault();
     $(this).removeClass("dragover");
-    handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+    if(0 < e.originalEvent.dataTransfer.files.length)
+    {
+        handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+    }
 
     glsl.setUniform("u_hilightL", 0);
     glsl.setUniform("u_hilightR", 0);
@@ -1072,14 +1078,17 @@ $("#uicanvas").on('dragover', function (e) {
 });
 
 $("#uicanvas").on('drop', function (e) {
-    let border = mouseBorder();
-    if(border < 0.0)
+    if(0 < e.originalEvent.dataTransfer.files.length)
     {
-        handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
-    }
-    else
-    {
-        handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+        let border = mouseBorder();
+        if(border < 0.0)
+        {
+            handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_L", true);
+        }
+        else
+        {
+            handleDrop(e.originalEvent.dataTransfer.files[0], "u_image_R", false);
+        }
     }
 
     glsl.setUniform("u_hilightL", 0);
