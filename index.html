@@ -282,6 +282,34 @@
 
 <script>
 'use strict';
+
+// Vector
+function add(a, b)
+{
+    return {
+        x: a.x + b.x,
+        y: a.y + b.y,
+    };
+}
+function sub(a, b)
+{
+    return {
+        x: a.x - b.x,
+        y: a.y - b.y,
+    };
+}
+function mulScalar(a, s)
+{
+    return {
+        x: a.x * s,
+        y: a.y * s,
+    };
+}
+function dot(a, b)
+{
+    return a.x * b.x + a.y * b.y;
+}
+
 const canvas = document.getElementById('glcanvas');
 const glsl = new GlslCanvas(canvas, {preserveDrawingBuffer: true});
 
@@ -311,6 +339,28 @@ var floatImageR = null;
 // for Slice Graph. left to right and top to bottom order.
 let imageLRaw = null;
 let imageRRaw = null;
+
+// relative to ui canvas. y is not flipped.
+let sliceVertices = [
+    { x: 0.25, y: 0.5 },
+    { x: 0.75, y: 0.5 },
+];
+const SLICE_VERTEX_RADIUS = 18;
+const SLICE_MODE_NONE = 0;
+const SLICE_MODE_DRAG = 1;
+const SLICE_MODE_NEW  = 2;
+const SLICE_MODE_DRAG_LINE  = 3;
+
+let sliceVertexGrab = -1;
+let isSliceGraphShowing = false;
+let sliceMode = SLICE_MODE_NONE;
+
+let grabbaseVertices = [
+    { x: 0.25, y: 0.5 },
+    { x: 0.75, y: 0.5 },
+];
+let grabbaseX = 0;
+let grabbaseY = 0;
 
 // for flexible drop
 let glu_directionX = 1;
@@ -435,6 +485,64 @@ glsl.on("render", function(e) {
             drawText(label_L, Location.RT);
             drawText(label_R, Location.LT);
         }
+    }
+
+    if( isSliceGraphShowing )
+    {
+        let p0x = sliceVertices[0].x * uicanvas.width;
+        let p0y = uicanvas.height - 1 - sliceVertices[0].y * uicanvas.height;
+        let p1x = sliceVertices[1].x * uicanvas.width;
+        let p1y = uicanvas.height - 1 - sliceVertices[1].y * uicanvas.height;
+
+        // arrow
+        let dx = p1x - p0x;
+        let dy = p1y - p0y;
+        let dLength = Math.sqrt(dx * dx + dy * dy);
+        dx /= dLength;
+        dy /= dLength;
+        let theta = 30.0 * Math.PI / 180.0;
+        let arrowTheta0 = Math.PI - theta;
+        let arrowTheta1 = Math.PI + theta;
+        let dxArrow0 = Math.cos(arrowTheta0) * dx - Math.sin(arrowTheta0) * dy;
+        let dyArrow0 = Math.sin(arrowTheta0) * dx + Math.cos(arrowTheta0) * dy;
+        let dxArrow1 = Math.cos(arrowTheta1) * dx - Math.sin(arrowTheta1) * dy;
+        let dyArrow1 = Math.sin(arrowTheta1) * dx + Math.cos(arrowTheta1) * dy;
+    
+        uictx.lineCap = "round";
+        uictx.beginPath();
+        uictx.arc(p0x, p0y, SLICE_VERTEX_RADIUS * 0.5 /* R */, 0, 2 * Math.PI, false);
+        uictx.lineWidth = 6;
+        uictx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        uictx.stroke();
+
+        function arrowPath(ctx)
+        {
+            ctx.moveTo(p0x, p0y);
+            ctx.lineTo(p1x, p1y);
+            ctx.moveTo(p1x, p1y);
+            ctx.lineTo(p1x + dxArrow0 * SLICE_VERTEX_RADIUS * 0.8, p1y + dyArrow0 * SLICE_VERTEX_RADIUS * 0.8);
+            ctx.moveTo(p1x, p1y);
+            ctx.lineTo(p1x + dxArrow1 * SLICE_VERTEX_RADIUS * 0.8, p1y + dyArrow1 * SLICE_VERTEX_RADIUS * 0.8);
+        };
+    
+        uictx.beginPath();
+        arrowPath(uictx);
+        uictx.lineWidth = 6;
+        uictx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        uictx.stroke();
+
+        uictx.beginPath();
+        uictx.arc(p0x, p0y, SLICE_VERTEX_RADIUS * 0.5 /* R */, 0, 2 * Math.PI, false);
+        uictx.lineWidth = 2;
+        uictx.strokeStyle = '#FF0000';
+        uictx.stroke();
+
+        uictx.beginPath();
+        arrowPath(uictx);
+        uictx.lineWidth = 2;
+        uictx.strokeStyle = '#FF0000';
+        uictx.setLineDash([16, 8]);
+        uictx.stroke();
     }
     
     // uictx.fillRect(mouseLocationXLocalAlways, uicanvas.height - 1 - mouseLocationYLocalAlways, 10, 10);
@@ -674,13 +782,9 @@ glsl.setUniform("u_Inf_Color", 1.0, 0.0, 1.0);
 const EVENT_VIEW = "#uicanvas";
 
 var down = false;
-$(EVENT_VIEW).mousedown(function(e) {
-    down = true;
-});
-$("html").mouseup(function() {
-    down = false;
-});
 
+// mouseLocationXLocalAlways, mouseLocationYLocalAlways are always updated.
+// glu_mouselocationX, glu_mouselocationY and glsl.setUniform are updated just when down == true
 function updateMouseLocation(e) {
     {
         // Coordinate transform
@@ -703,8 +807,39 @@ function updateMouseLocation(e) {
     mouseLocationYLocalAlways = y;
 }
 
+function Clamp(x, lower, upper) {
+  return Math.min(Math.max(x, lower), upper);
+}
+
 $("html").mousemove(function(e) {
     updateMouseLocation(e);
+
+    if(sliceMode !== SLICE_MODE_NONE)
+    {
+        let newX = Clamp(mouseLocationXLocalAlways / uicanvas.width, 0, 1);
+        let newY = Clamp(mouseLocationYLocalAlways / uicanvas.height, 0, 1);
+        if(sliceMode == SLICE_MODE_DRAG)
+        {
+            sliceVertices[sliceVertexGrab].x = newX;
+            sliceVertices[sliceVertexGrab].y = newY;
+        }
+        else if (sliceMode == SLICE_MODE_NEW)
+        {
+            sliceVertices[1].x = newX;
+            sliceVertices[1].y = newY;
+        }
+        else if( sliceMode == SLICE_MODE_DRAG_LINE )
+        {
+            let dx = (mouseLocationXLocalAlways - grabbaseX) / uicanvas.width;
+            let dy = (mouseLocationYLocalAlways - grabbaseY) / uicanvas.height;
+            for(let i = 0 ; i < 2 ; ++i)
+            {
+                sliceVertices[i].x = Clamp((grabbaseVertices[i].x + dx), 0, 1);
+                sliceVertices[i].y = Clamp((grabbaseVertices[i].y + dy), 0, 1);
+            }
+        }
+        invokeRender();
+    }
     
     // disable drag selection effects.
     const uidialog = $('.ui-dialog');
@@ -712,8 +847,92 @@ $("html").mousemove(function(e) {
         e.preventDefault();
     }
 });
-$(EVENT_VIEW).mouseleave(updateMouseLocation);
+$("html").mouseup(function() {
+    down = false;
+    sliceVertexGrab = -1;
+    sliceMode = SLICE_MODE_NONE;
+});
+$(EVENT_VIEW).mouseup(function(e) {
+    sliceVertexGrab = -1;
+    sliceMode = SLICE_MODE_NONE;
+});
+$(EVENT_VIEW).mouseleave(function(e){
+    updateMouseLocation(e);
+});
+
+function distanceLinePoint(p0x, p0y, p1x, p1y, ox, oy)
+{
+    let p0 = {x:p0x, y:p0y};
+    let p1 = {x:p1x, y:p1y};
+    let o = {x:ox, y:oy};
+    let a = sub(o, p0);
+    let b = sub(p1, p0);
+    let c = Clamp(dot(a, b) / dot(b, b), 0, 1);
+    let onLine = add(p0, mulScalar(b, c));
+    let between = sub(onLine, o);
+    return Math.sqrt(dot(between, between));
+}
+
 $(EVENT_VIEW).mousedown(function(e){
+    updateMouseLocation(e);
+
+    if( isSliceGraphShowing )
+    {
+        sliceVertexGrab = -1;
+        for(let i = 0 ; i < sliceVertices.length ; ++i)
+        {
+            let sliceX = sliceVertices[i].x * uicanvas.width;
+            let sliceY = sliceVertices[i].y * uicanvas.height;
+            let d = Math.sqrt(Math.pow(sliceX - mouseLocationXLocalAlways, 2) + Math.pow(sliceY - mouseLocationYLocalAlways, 2));
+            if(d < SLICE_VERTEX_RADIUS)
+            {
+                sliceVertexGrab = i;
+                break;
+            }
+        }
+        if(0 <= sliceVertexGrab)
+        {
+            sliceMode = SLICE_MODE_DRAG;
+        }
+        else
+        {
+            let d = distanceLinePoint(
+                sliceVertices[0].x * uicanvas.width, sliceVertices[0].y * uicanvas.height, 
+                sliceVertices[1].x * uicanvas.width, sliceVertices[1].y * uicanvas.height,
+                mouseLocationXLocalAlways,
+                mouseLocationYLocalAlways
+            );
+            if(d < SLICE_VERTEX_RADIUS)
+            {
+                sliceMode = SLICE_MODE_DRAG_LINE;
+
+                for(let i = 0 ; i < 2 ; ++i)
+                {
+                    grabbaseVertices[i].x = sliceVertices[i].x;
+                    grabbaseVertices[i].y = sliceVertices[i].y;
+                }
+                grabbaseX = mouseLocationXLocalAlways;
+                grabbaseY = mouseLocationYLocalAlways;
+            }
+            else
+            {
+                sliceMode = SLICE_MODE_NEW;
+    
+                sliceVertices[0].x = sliceVertices[1].x = Clamp(mouseLocationXLocalAlways / uicanvas.width, 0, 1);
+                sliceVertices[0].y = sliceVertices[1].y = Clamp(mouseLocationYLocalAlways / uicanvas.height, 0, 1);
+                invokeRender();
+            }
+        }
+    }
+    else
+    {
+        sliceMode = SLICE_MODE_NONE;
+    }
+    if(sliceMode !== SLICE_MODE_NONE)
+    {
+        return;
+    }
+
     down = true;
     updateMouseLocation(e);
 });
@@ -1625,10 +1844,12 @@ function onSliceGraph()
         //https://stackoverflow.com/questions/1619750/how-can-you-disable-scroll-bars-in-the-jquery-ui-dialog-box
         $('#sldialog').css('overflow', 'hidden'); //Hide Scroll Bar
         doUpdateSLCanvas();
-        //drawCanvas();
+        isSliceGraphShowing = true;
+        invokeRender();
        },
        close: function (event) {
-           console.log("close");
+        isSliceGraphShowing = false;
+        invokeRender();
        },
        resize: function( event, ui ) {
         //ui.size.width = Math.round(ui.size.width);
@@ -1642,6 +1863,8 @@ function onSliceGraph()
        },
     });
 }
+
+onSliceGraph();
 
 </script>
 </body>
