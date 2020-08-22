@@ -489,6 +489,13 @@ glsl.on("render", function(e) {
 
     if( isSliceGraphShowing )
     {
+        let isInteractable = sliceMode !== SLICE_MODE_NONE || distanceLinePoint(
+                sliceVertices[0].x * uicanvas.width, sliceVertices[0].y * uicanvas.height, 
+                sliceVertices[1].x * uicanvas.width, sliceVertices[1].y * uicanvas.height,
+                mouseLocationXLocalAlways,
+                mouseLocationYLocalAlways
+        ) < SLICE_VERTEX_RADIUS;
+
         let p0x = sliceVertices[0].x * uicanvas.width;
         let p0y = uicanvas.height - 1 - sliceVertices[0].y * uicanvas.height;
         let p1x = sliceVertices[1].x * uicanvas.width;
@@ -511,8 +518,8 @@ glsl.on("render", function(e) {
         uictx.lineCap = "round";
         uictx.beginPath();
         uictx.arc(p0x, p0y, SLICE_VERTEX_RADIUS * 0.5 /* R */, 0, 2 * Math.PI, false);
-        uictx.lineWidth = 6;
-        uictx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        uictx.lineWidth = isInteractable ? 8 : 6;
+        uictx.strokeStyle = isInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
         uictx.stroke();
 
         function arrowPath(ctx)
@@ -527,20 +534,20 @@ glsl.on("render", function(e) {
     
         uictx.beginPath();
         arrowPath(uictx);
-        uictx.lineWidth = 6;
-        uictx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        uictx.lineWidth = isInteractable ? 6 : 4;
+        uictx.strokeStyle = isInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
         uictx.stroke();
 
         uictx.beginPath();
         uictx.arc(p0x, p0y, SLICE_VERTEX_RADIUS * 0.5 /* R */, 0, 2 * Math.PI, false);
-        uictx.lineWidth = 2;
-        uictx.strokeStyle = '#FF0000';
+        uictx.lineWidth = 1.5;
+        uictx.strokeStyle = isInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
         uictx.stroke();
 
         uictx.beginPath();
         arrowPath(uictx);
-        uictx.lineWidth = 2;
-        uictx.strokeStyle = '#FF0000';
+        uictx.lineWidth = 1.5;
+        uictx.strokeStyle = isInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
         uictx.setLineDash([16, 8]);
         uictx.stroke();
     }
@@ -838,6 +845,9 @@ $("html").mousemove(function(e) {
                 sliceVertices[i].y = Clamp((grabbaseVertices[i].y + dy), 0, 1);
             }
         }
+    }
+    if( isSliceGraphShowing )
+    {
         invokeRender();
     }
     
