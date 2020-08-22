@@ -121,6 +121,17 @@
             <input class="font_color" value="#FF0000" style="width:130px"/>
         </div>
 
+        <div style="display: flex; flex-direction:column; align-items: center;" id="fperror">
+            <div style="text-align: center;">Floating Point Error</div>
+            <div style="height: 15px"></div> <!--  margin -->
+            <div style="text-align: center; font-size: 14px;">NaN</div>
+            <input class="Nan_Color" value="#FF0000" style="width:130px"/>
+            <div style="height: 10px"></div> <!--  margin -->
+            <div style="text-align: center; font-size: 14px;">Infinity</div>
+            <div style="height: 5px"></div> <!--  margin -->
+            <input class="Inf_Color" value="#FF00FF" style="width:130px"/>
+        </div>
+
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Diff Mode</div>
             <div style="height: 20px"></div> <!--  margin -->
@@ -407,6 +418,9 @@ precision mediump float;
     uniform sampler2D u_image_R;
     uniform sampler2D u_image_welch;
 
+    uniform vec3 u_Nan_Color;
+    uniform vec3 u_Inf_Color;
+    
     float border(vec2 fragcood, vec2 n, vec2 p) {
         float base = dot(p,        n);
         float x    = dot(fragcood, n);
@@ -424,13 +438,36 @@ precision mediump float;
         return c;
     }
 
+    // https://stackoverflow.com/questions/11810158/how-to-deal-with-nan-or-inf-in-opengl-es-2-0-shaders
+    bool isnan( float val )
+    {
+        return ( val < 0.0 || 0.0 < val || val == 0.0 ) ? false : true;
+    }
+    #define FLT_MAX 3.402823466e+38
+    bool isinf(float n) 
+    {
+        return FLT_MAX < abs(n);
+    }
     vec4 GetImageL(vec2 st)
     {
-        return texture2D(u_image_L, st);
+        vec4 c = texture2D(u_image_L, st);
+
+        if(isnan(c.x) || isnan(c.y) || isnan(c.z) || isnan(c.w)) {
+            c = vec4(u_Nan_Color, 1.0);
+        } else if( isinf(c.x) || isinf(c.y) || isinf(c.z) || isinf(c.w) ) {
+            c = vec4(u_Inf_Color, 1.0);
+        }
+        return c;
     }
     vec4 GetImageR(vec2 st)
     {
-        return texture2D(u_image_R, st);
+        vec4 c = texture2D(u_image_R, st);
+        if(isnan(c.x) || isnan(c.y) || isnan(c.z) || isnan(c.w)) {
+            c = vec4(u_Nan_Color, 1.0);
+        } else if( isinf(c.x) || isinf(c.y) || isinf(c.z) || isinf(c.w) ) {
+            c = vec4(u_Inf_Color, 1.0);
+        }
+        return c;
     }
     vec4 addHilightL(vec4 c)
     {
@@ -572,8 +609,8 @@ glsl.setUniform("u_postGamma", 2.2);
 glsl.setUniform("u_welchOverlay", 0.0);
 glsl.setUniform("u_hilightL", 0.0);
 glsl.setUniform("u_hilightR", 0.0);
-
-
+glsl.setUniform("u_Nan_Color", 1.0, 0.0, 0.0);
+glsl.setUniform("u_Inf_Color", 1.0, 0.0, 1.0);
 {
     let nPixels = 2 * 2;
     let rgba = new Float32Array(nPixels * 4);
@@ -745,6 +782,34 @@ hueb_font.on( 'change', function( color, hue, sat, lum ) {
     const g = parseInt(G, 16) / 255.0;
     const b = parseInt(B, 16) / 255.0;
     invokeRender();
+});
+
+var hueb_Nan_Color = new Huebee( '.Nan_Color', {
+  notation: 'hex',
+  saturations: 2,
+});
+hueb_Nan_Color.on( 'change', function( color, hue, sat, lum ) {
+    const R = color.slice(1, 3);
+    const G = color.slice(3, 5);
+    const B = color.slice(5, 7);
+    const r = parseInt(R, 16) / 255.0;
+    const g = parseInt(G, 16) / 255.0;
+    const b = parseInt(B, 16) / 255.0;
+    glsl.setUniform("u_Nan_Color", r, g, b);
+});
+
+var hueb_Inf_Color = new Huebee( '.Inf_Color', {
+  notation: 'hex',
+  saturations: 2,
+});
+hueb_Inf_Color.on( 'change', function( color, hue, sat, lum ) {
+    const R = color.slice(1, 3);
+    const G = color.slice(3, 5);
+    const B = color.slice(5, 7);
+    const r = parseInt(R, 16) / 255.0;
+    const g = parseInt(G, 16) / 255.0;
+    const b = parseInt(B, 16) / 255.0;
+    glsl.setUniform("u_Inf_Color", r, g, b);
 });
 
 function didChangeDiffMode(value) {
