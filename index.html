@@ -6,6 +6,10 @@
     <script src="jquery-3.3.1.min.js"></script>
     <script src="jquery.event.move.js"></script>
     <script src="jquery.knob.js"></script>
+
+    <link rel="stylesheet" href="jquery-ui.min.css">
+    <script src="jquery-ui.min.js"></script>
+
     <script src="GlslCanvas.js"></script>
     <script src="FileSaver.js"></script>
     <script src="paste.js"></script>
@@ -32,13 +36,18 @@
         }
 
         /* disable pixel filter */
-        canvas {
+        .disablePixelFilter {
             image-rendering: optimizeSpeed;             /* Older versions of FF          */
             image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
             image-rendering: -webkit-optimize-contrast; /* Safari                        */
             image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
             image-rendering: pixelated;                 /* Awesome future-browsers       */
             -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+        }
+
+        .ui-dialog-titlebar{
+            padding: 0.3rem !important;
+            font-size: 0.75rem;
         }
     </style>
 </head>
@@ -53,7 +62,7 @@
 </div>
 
 <div style="display: flex; justify-content: center; align-items: baseline;" id="glcontainer">
-    <canvas id="glcanvas" style="max-width:100%; height:auto;">
+    <canvas id="glcanvas" style="max-width:100%; height:auto;" class="disablePixelFilter">
 </div>
 
 <div style="display: flex; justify-content: center; align-items: baseline; position: absolute; left: 0px; top: 0px; z-index: 10;" id="uicontainer">
@@ -197,6 +206,16 @@
             </select>
         </div>
 
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Slice Graph</div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <button style="
+                height: 100px;
+                width: 100px;
+                color: rgb(115, 77, 255);
+            " onclick="onSliceGraph()"></button>
+        </div>
+
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto; background-image:url(gradient.png); background-size: 100% 23%; background-repeat: no-repeat;">
             <div style="text-align: center; opacity:0.3;" id="WelchLabel"> Welch (exr only)</div>
             <div style="height: 14px"></div> <!--  margin -->
@@ -229,6 +248,27 @@
 
 <a href="https://github.com/Ushio/SimpleImageCompareTool3">Github Repo</a>
 
+<div hidden>
+    <div id="sldialog" title="Slice Graph" style="padding: 0;margin:0">
+        <div style="
+        background-color: rgb(255, 0, 200);
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 50px;
+        ">
+        <canvas id="slcanvas" style="
+            background-color: aqua;
+            /* position: absolute; */
+            top: 0;
+            left: 0;
+            /* width: 100%;
+            height: 100%; */
+        "> </canvas>
+        </div>
+    </div>
+</div>
+
 <details>
     <summary>Welch Notes</summary>
     <ul>
@@ -259,6 +299,28 @@ let L_filename = "L";
 let R_filename = "R";
 
 let angle = 0.0; // for label location
+
+const HILIGHT_VALUE = 0.4;
+
+// For welch
+var floatImageWidth  = 0;
+var floatImageHeight = 0;
+var floatImageL = null;
+var floatImageR = null;
+
+// for Slice Graph. left to right and top to bottom order.
+let imageLRaw = null;
+let imageRRaw = null;
+
+// for flexible drop
+let glu_directionX = 1;
+let glu_directionY = 0;
+let glu_direction_fixedX = 0;
+let glu_direction_fixedY = 0;
+let glu_mouselocationX = canvas.width * 0.5;
+let glu_mouselocationY = canvas.height * 0.5;
+let mouseLocationXLocalAlways = 0;
+let mouseLocationYLocalAlways = 0;
 
 glsl.on("render", function(e) {
     const glcontainer = $('#glcontainer');
@@ -374,6 +436,8 @@ glsl.on("render", function(e) {
             drawText(label_R, Location.LT);
         }
     }
+    
+    // uictx.fillRect(mouseLocationXLocalAlways, uicanvas.height - 1 - mouseLocationYLocalAlways, 10, 10);
 });
 
 // UI Drawing
@@ -572,24 +636,6 @@ R_filename = "dogs-after";
 $('#Label_L_override').attr("placeholder", L_filename);
 $('#Label_R_override').attr("placeholder", R_filename);
 
-const HILIGHT_VALUE = 0.4;
-
-// For welch
-var floatImageWidth  = 0;
-var floatImageHeight = 0;
-var floatImageL = null;
-var floatImageR = null;
-
-// for flexible drop
-let glu_directionX = 1;
-let glu_directionY = 0;
-let glu_direction_fixedX = 0;
-let glu_direction_fixedY = 0;
-let glu_mouselocationX = canvas.width * 0.5;
-let glu_mouselocationY = canvas.height * 0.5;
-let mouseLocationXLocalAlways = 0;
-let mouseLocationYLocalAlways = 0;
-
 // Default Values
 glsl.setUniform("u_image_L", "dogs-before.jpg");
 glsl.setUniform("u_image_R", "dogs-after.jpg");
@@ -659,6 +705,12 @@ function updateMouseLocation(e) {
 
 $("html").mousemove(function(e) {
     updateMouseLocation(e);
+    
+    // disable drag selection effects.
+    const uidialog = $('.ui-dialog');
+    if (0 < uidialog.length && uidialog.is(':hover')) {
+        e.preventDefault();
+    }
 });
 $(EVENT_VIEW).mouseleave(updateMouseLocation);
 $(EVENT_VIEW).mousedown(function(e){
@@ -1043,6 +1095,8 @@ var handleDrop = function(file, sampler, isLeft) {
                 }
                 floatImageWidth = exrImage.width;
                 floatImageHeight = exrImage.height;
+
+                onTriggeredUpdateImage();
             } );
         }
         else
@@ -1065,6 +1119,8 @@ var handleDrop = function(file, sampler, isLeft) {
             }
             floatImageWidth = 0;
             floatImageHeight = 0;
+
+            onTriggeredUpdateImage();
         }
     }
     
@@ -1309,7 +1365,9 @@ let chart = new Chart(wctx, {
                     beginAtZero: true
                 }
             }]
-        }
+        },
+        responsive: true, 
+        maintainAspectRatio: false
     }
 });
 
@@ -1443,6 +1501,146 @@ function onWelch()
     $("#WelchSlider").val(100);
     glsl.setUniform("u_welchOverlay", 1.0);
     $("#pUI").show();
+}
+
+function downloadTextureAsFloat(image)
+{
+    // the image might have float array already.
+    if( image.source.constructor == Float32Array )
+    {
+        return {
+            width: image.width,
+            height: image.height,
+            data: image.source
+        };
+    }
+
+    glsl.gl.pixelStorei(glsl.gl.UNPACK_FLIP_Y_WEBGL, true);
+
+    // https://stackoverflow.com/questions/4702032/accessing-image-texture-data-texels-on-webgl
+    // Create a framebuffer backed by the texture
+    let framebuffer = glsl.gl.createFramebuffer();
+    glsl.gl.bindFramebuffer(glsl.gl.FRAMEBUFFER, framebuffer);
+    glsl.gl.framebufferTexture2D(glsl.gl.FRAMEBUFFER, glsl.gl.COLOR_ATTACHMENT0, glsl.gl.TEXTURE_2D, image.texture, 0);
+
+    // Read the contents of the framebuffer (data stores the pixel data)
+    let dataU8 = new Uint8Array(image.width * image.height * 4);
+    glsl.gl.readPixels(0, 0, image.width, image.height, glsl.gl.RGBA, glsl.gl.UNSIGNED_BYTE, dataU8);
+
+    glsl.gl.deleteFramebuffer(framebuffer);
+
+    let dataF32 = new Float32Array(image.width * image.height * 4);
+    
+    // flip vertially and u8 to f32
+    for(let y = 0 ; y < image.height ; ++y)
+    {
+        let y_dst = y;
+        let y_src = image.height - 1 - y;
+        for(let x = 0 ; x < image.width ; ++x)
+        {
+            let src_index = (y_src * image.width + x) * 4;
+            let dst_index = (y_dst * image.width + x) * 4;
+            for(let i = 0 ; i < 4 ; ++i)
+            {
+                dataF32[src_index + i] = dataU8[dst_index + i] / 255.0;
+            }
+        }
+    }
+    return {
+        width: image.width,
+        height: image.height,
+        data: dataF32
+    };
+}
+function onTriggeredUpdateImage()
+{
+    // console.log("onTriggeredUpdateImage");
+    glsl.textures["u_image_L"].loading.then( image => {
+        imageLRaw = downloadTextureAsFloat(image);
+        console.log(imageLRaw);
+    });
+    glsl.textures["u_image_R"].loading.then( image => {
+        imageRRaw = downloadTextureAsFloat(image);
+        console.log(imageRRaw);
+    });
+
+    // console.log("onUpdatedTextures");
+    // const imageL = glsl.textures["u_image_L"];
+    // const imageR = glsl.textures["u_image_R"];
+    // console.log(`imageL ${imageL.width} x ${imageL.height}` );
+    // console.log(`imageR ${imageR.width} x ${imageR.height}` );
+
+    // imageL.loading.then( image => {
+    //     console.log("then!!");
+    // });
+    // imageR.loading.then( texture => {
+    //     console.log("then!!");
+    // });
+    
+    // const imageDataL = downloadTextureAsFloat(imageL);
+    // const imageDataR = downloadTextureAsFloat(imageR);
+    // console.log(imageDataL);
+    // console.log(imageDataR);
+}
+
+// Run once for initialize
+onTriggeredUpdateImage();
+
+function randomScalingFactor() {
+    return Math.round(Math.random() * 200 - 100);
+};
+    
+// https://api.jqueryui.com/dialog/#event-resize
+function doUpdateSLCanvas( event, ui )
+{
+    const slcanvas = document.getElementById('slcanvas');
+    const context = uicanvas.getContext('2d');
+    const sldialog = $("#sldialog");
+    let canvasParent = document.getElementById("sldialog");
+    // let w = Math.round(sldialog.width());
+    // let h = Math.round(sldialog.height());
+    
+    // sldialog.width(w);
+    // sldialog.height(h);
+    slcanvas.width = Math.round(canvasParent.clientWidth);
+    slcanvas.height = Math.round(canvasParent.clientHeight);
+}
+
+const slcanvas = document.getElementById('slcanvas');
+const slcontext = slcanvas.getContext('2d');
+function drawCanvas()
+{
+    slcontext.fillRect(0, 0, slcontext.width, slcontext.height);
+    slcontext.beginPath();
+    slcontext.moveTo(120, 60);
+    slcontext.lineTo(240, 90);
+    slcontext.stroke();
+}
+function onSliceGraph()
+{
+    $( "#sldialog" ).dialog({
+        width: 400,
+        height: 200,
+       open: function (event) {
+        //https://stackoverflow.com/questions/1619750/how-can-you-disable-scroll-bars-in-the-jquery-ui-dialog-box
+        $('#sldialog').css('overflow', 'hidden'); //Hide Scroll Bar
+        doUpdateSLCanvas();
+        //drawCanvas();
+       },
+       close: function (event) {
+           console.log("close");
+       },
+       resize: function( event, ui ) {
+        //ui.size.width = Math.round(ui.size.width);
+        //ui.size.width = Math.round(ui.size.width);
+
+        // slchart.canvas.parentNode.style.height = slcanvas.width + 'px';
+        // slchart.canvas.parentNode.style.width = slcanvas.height + 'px';
+           
+        doUpdateSLCanvas();
+        //drawCanvas();
+       },
+    });
 }
 
 </script>
