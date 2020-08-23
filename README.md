@@ -27,6 +27,8 @@ https://github.com/layerssss/paste.js
 
 https://github.com/disneyresearch/openexr-wrap-em
 
+https://github.com/leeoniya/uPlot
+
 ## How to use
 ### Basic Usage
 ![demo](demo.gif)
@@ -36,6 +38,8 @@ https://github.com/disneyresearch/openexr-wrap-em
 
 ### Loupe Mode
 ![demo](demo-loupe.gif)
+
+### Slice Graph
 
 ## TODO
 - 4 images

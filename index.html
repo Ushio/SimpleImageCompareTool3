@@ -24,6 +24,9 @@
 
     <script src="Chart.js"></script>
 
+    <script src="uPlot.iife.js"></script>
+    <link rel="stylesheet" href="uPlot.min.css">
+
     <style>
         .dragover {
             background:rgb(193, 225, 255);
@@ -250,7 +253,7 @@
 
 <div hidden>
     <div id="sldialog" title="Slice Graph" style="padding: 0;margin:0">
-        <div style="
+        <!-- <div style="
         background-color: rgb(255, 0, 200);
         top: 0;
         left: 0;
@@ -265,7 +268,7 @@
             /* width: 100%;
             height: 100%; */
         "> </canvas>
-        </div>
+        </div> -->
     </div>
 </div>
 
@@ -309,6 +312,10 @@ function dot(a, b)
 {
     return a.x * b.x + a.y * b.y;
 }
+function lerp(a, b, amt)
+{
+    return a + (b - a) * amt;
+}
 
 const canvas = document.getElementById('glcanvas');
 const glsl = new GlslCanvas(canvas, {preserveDrawingBuffer: true});
@@ -328,6 +335,10 @@ let R_filename = "R";
 
 let angle = 0.0; // for label location
 
+// be careful. this should point initial image size
+canvas.width = 1200;
+canvas.height = 722;
+
 const HILIGHT_VALUE = 0.4;
 
 // For welch
@@ -340,7 +351,7 @@ var floatImageR = null;
 let imageLRaw = null;
 let imageRRaw = null;
 
-// relative to ui canvas. y is not flipped.
+// relative to ui canvas. up positive.
 let sliceVertices = [
     { x: 0.25, y: 0.5 },
     { x: 0.75, y: 0.5 },
@@ -371,6 +382,15 @@ let glu_mouselocationX = canvas.width * 0.5;
 let glu_mouselocationY = canvas.height * 0.5;
 let mouseLocationXLocalAlways = 0;
 let mouseLocationYLocalAlways = 0;
+
+function getImageLabelL() 
+{
+    return $("#Label_L_override")[0].value || L_filename;
+}
+function getImageLabelR() 
+{
+    return $("#Label_R_override")[0].value || R_filename;
+}
 
 glsl.on("render", function(e) {
     const glcontainer = $('#glcontainer');
@@ -428,8 +448,8 @@ glsl.on("render", function(e) {
         uictx.restore();
     }
 
-    let label_L = $("#Label_L_override")[0].value || L_filename;
-    let label_R = $("#Label_R_override")[0].value || R_filename;
+    let label_L = getImageLabelL();
+    let label_R = getImageLabelR();
 
     const fixed_direction = $('[name="fixed_direction"] option:selected').val();
     if(fixed_direction) {
@@ -496,6 +516,7 @@ glsl.on("render", function(e) {
                 mouseLocationYLocalAlways
         ) < SLICE_VERTEX_RADIUS;
 
+        // flip y and relative to absolute
         let p0x = sliceVertices[0].x * uicanvas.width;
         let p0y = uicanvas.height - 1 - sliceVertices[0].y * uicanvas.height;
         let p1x = sliceVertices[1].x * uicanvas.width;
@@ -743,9 +764,6 @@ precision mediump float;
 `;
 glsl.load(fs);
 
-canvas.width = 1200;
-canvas.height = 722;
-
 L_filename = "dogs-before";
 R_filename = "dogs-after";
 $('#Label_L_override').attr("placeholder", L_filename);
@@ -845,6 +863,8 @@ $("html").mousemove(function(e) {
                 sliceVertices[i].y = Clamp((grabbaseVertices[i].y + dy), 0, 1);
             }
         }
+
+        onSliceGraphUpdate();
     }
     if( isSliceGraphShowing )
     {
@@ -863,6 +883,7 @@ $("html").mouseup(function() {
     sliceMode = SLICE_MODE_NONE;
 });
 $(EVENT_VIEW).mouseup(function(e) {
+    down = false;
     sliceVertexGrab = -1;
     sliceMode = SLICE_MODE_NONE;
 });
@@ -933,6 +954,8 @@ $(EVENT_VIEW).mousedown(function(e){
                 invokeRender();
             }
         }
+
+        onSliceGraphUpdate();
     }
     else
     {
@@ -1731,7 +1754,20 @@ function onWelch()
     glsl.setUniform("u_welchOverlay", 1.0);
     $("#pUI").show();
 }
-
+// left to right, top to bottom
+// o.r, o.g, o.b, o.a, xi, yi will be filled.
+function sampleNearestNeighbor(image, u, v, o)
+{
+    const xi = Clamp( Math.floor(image.width * u), 0, image.width - 1);
+    const yi = Clamp( Math.floor(image.height * v), 0, image.height - 1);
+    const index = (yi * image.width + xi) * 4;
+    o.r = image.data[index];
+    o.g = image.data[index+1];
+    o.b = image.data[index+2];
+    o.a = image.data[index+3];
+    o.xi = xi;
+    o.yi = yi;
+}
 function downloadTextureAsFloat(image)
 {
     // the image might have float array already.
@@ -1786,95 +1822,191 @@ function onTriggeredUpdateImage()
     // console.log("onTriggeredUpdateImage");
     glsl.textures["u_image_L"].loading.then( image => {
         imageLRaw = downloadTextureAsFloat(image);
-        console.log(imageLRaw);
     });
     glsl.textures["u_image_R"].loading.then( image => {
         imageRRaw = downloadTextureAsFloat(image);
-        console.log(imageRRaw);
     });
-
-    // console.log("onUpdatedTextures");
-    // const imageL = glsl.textures["u_image_L"];
-    // const imageR = glsl.textures["u_image_R"];
-    // console.log(`imageL ${imageL.width} x ${imageL.height}` );
-    // console.log(`imageR ${imageR.width} x ${imageR.height}` );
-
-    // imageL.loading.then( image => {
-    //     console.log("then!!");
-    // });
-    // imageR.loading.then( texture => {
-    //     console.log("then!!");
-    // });
-    
-    // const imageDataL = downloadTextureAsFloat(imageL);
-    // const imageDataR = downloadTextureAsFloat(imageR);
-    // console.log(imageDataL);
-    // console.log(imageDataR);
 }
 
 // Run once for initialize
 onTriggeredUpdateImage();
 
-function randomScalingFactor() {
-    return Math.round(Math.random() * 200 - 100);
-};
-    
-// https://api.jqueryui.com/dialog/#event-resize
-function doUpdateSLCanvas( event, ui )
+let plot = null;
+let sliceGraphData = null;
+function onSliceGraphUpdate()
 {
-    const slcanvas = document.getElementById('slcanvas');
-    const context = uicanvas.getContext('2d');
-    const sldialog = $("#sldialog");
-    let canvasParent = document.getElementById("sldialog");
-    // let w = Math.round(sldialog.width());
-    // let h = Math.round(sldialog.height());
-    
-    // sldialog.width(w);
-    // sldialog.height(h);
-    slcanvas.width = Math.round(canvasParent.clientWidth);
-    slcanvas.height = Math.round(canvasParent.clientHeight);
+    if(plot == null) { return; }
+
+    // build data
+    let widthSlice = Math.abs(sliceVertices[0].x - sliceVertices[1].x) * canvas.width;
+    let heightSlice = Math.abs(sliceVertices[0].y - sliceVertices[1].y) * canvas.height;
+    let numSample = Math.floor(widthSlice + heightSlice);
+    let distanceSlice = Math.sqrt(widthSlice * widthSlice + heightSlice * heightSlice);
+
+    if( numSample < 5) { return; }
+
+    sliceGraphData = [
+        Array(numSample),
+
+        Array(numSample),
+        Array(numSample),
+        Array(numSample),
+
+        Array(numSample),
+        Array(numSample),
+        Array(numSample),
+    ];
+    let oL = {};
+    let oR = {};
+    for(let i = 0 ; i < numSample ; ++i)
+    {
+        let amt = i / (numSample - 1);
+        let x = distanceSlice * amt;
+        sliceGraphData[0][i] = x; // x axis
+
+        let u = lerp(sliceVertices[0].x, sliceVertices[1].x, amt);
+        let v = lerp(sliceVertices[0].y, sliceVertices[1].y, amt);
+
+        function cleanF(x) {
+            return Number.isFinite(x) ? x : null;
+        }
+        
+        sampleNearestNeighbor(imageLRaw, u, 1.0 - v, oL);
+        sliceGraphData[1][i] = cleanF(oL.r);
+        sliceGraphData[2][i] = cleanF(oL.g);
+        sliceGraphData[3][i] = cleanF(oL.b);
+
+        sampleNearestNeighbor(imageRRaw, u, 1.0 - v, oR);
+        sliceGraphData[4][i] = cleanF(oR.r);
+        sliceGraphData[5][i] = cleanF(oR.g);
+        sliceGraphData[6][i] = cleanF(oR.b);
+    }
+
+    let nSeries = plot.series.length;
+    for(let i = 0 ; i < nSeries - 1 ; i++)
+    {
+        plot.delSeries( nSeries - 1 - i );
+    }
+
+    let lineDash = [5, 2];
+    plot.addSeries({
+        value: (self, rawValue) => rawValue.toFixed(3),
+        label: "L",
+        stroke: "#DD0000",
+        dash: lineDash,
+        alpha: 0.7,
+    }, 1);
+    plot.addSeries({
+        value: (self, rawValue) => rawValue.toFixed(3),
+        label: "L",
+        stroke: "#00DD00",
+        dash: lineDash,
+        alpha: 0.7
+    }, 2);
+    plot.addSeries({
+        value: (self, rawValue) => rawValue.toFixed(3),
+        label: "L",
+        stroke: "#0000DD",
+        dash: lineDash,
+        alpha: 0.7
+    }, 3);
+    plot.addSeries({
+        value: (self, rawValue) => rawValue.toFixed(3),
+        label: "R",
+        stroke: "red",
+        alpha: 0.7
+    }, 4);
+    plot.addSeries({
+        value: (self, rawValue) => rawValue.toFixed(3),
+        label: "R",
+        stroke: "green",
+        alpha: 0.7
+    }, 5);
+    plot.addSeries({
+        value: (self, rawValue) => rawValue.toFixed(3),
+        label: "R",
+        stroke: "blue",
+        alpha: 0.7
+    }, 6);
+
+    plot.setData(sliceGraphData);
 }
 
-const slcanvas = document.getElementById('slcanvas');
-const slcontext = slcanvas.getContext('2d');
-function drawCanvas()
-{
-    slcontext.fillRect(0, 0, slcontext.width, slcontext.height);
-    slcontext.beginPath();
-    slcontext.moveTo(120, 60);
-    slcontext.lineTo(240, 90);
-    slcontext.stroke();
+function makeChart( container ) {
+    var loop = 1e4;
+
+    let data = [
+        Array(),
+        Array(),
+    ];
+
+    for (var i = 0; i < loop; i++) {
+        let x = 2 * Math.PI * i / loop;
+        let y = Math.sin(x);
+
+        data[0][i] = x;
+        data[1][i] = y;
+    }
+    const opts = {
+        width: 600,
+        height: 400,
+        scales: {
+            x: {
+                time: false,
+            },
+            y: {
+                auto: false,
+                range: [0, 1],
+            },
+        },
+        series: [
+            {
+                label: "x",
+                value: (self, rawValue) => rawValue.toFixed(1),
+            },
+        ],
+    };
+
+    let u = new uPlot( opts, data, container );
+    return u;
 }
+            
 function onSliceGraph()
 {
+    let defaultWidth = 600;
+    let defaultHeight = 300;
     $( "#sldialog" ).dialog({
-        width: 400,
-        height: 200,
+        width: defaultWidth,
+        height: defaultHeight,
        open: function (event) {
         //https://stackoverflow.com/questions/1619750/how-can-you-disable-scroll-bars-in-the-jquery-ui-dialog-box
         $('#sldialog').css('overflow', 'hidden'); //Hide Scroll Bar
-        doUpdateSLCanvas();
+        // doUpdateSLCanvas();
         isSliceGraphShowing = true;
         invokeRender();
+
+        if( plot == null )
+        {
+            plot = makeChart( this );
+        }
+        let d = this;
+        setTimeout(function() {
+            onSliceGraphUpdate();
+        }, 10);
+        plot.setSize( {width: defaultWidth, height: defaultHeight - 10 /* fixbias*/ - 80} );
        },
        close: function (event) {
         isSliceGraphShowing = false;
         invokeRender();
        },
        resize: function( event, ui ) {
-        //ui.size.width = Math.round(ui.size.width);
-        //ui.size.width = Math.round(ui.size.width);
-
-        // slchart.canvas.parentNode.style.height = slcanvas.width + 'px';
-        // slchart.canvas.parentNode.style.width = slcanvas.height + 'px';
-           
-        doUpdateSLCanvas();
-        //drawCanvas();
+        plot.setSize( {width: ui.size.width, height: ui.size.height - 80} );
        },
     });
 }
-
-onSliceGraph();
+// setTimeout(function() {
+//     onSliceGraph();
+// }, 500);
 
 </script>
 </body>
