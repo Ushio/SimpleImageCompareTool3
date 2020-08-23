@@ -10,6 +10,7 @@ http://Ushio.github.io/SimpleImageCompareTool3
 - Loupe mode
 - Simple Post Processing (Scale, Gamma)
 - OpenExr Support
+- Slice Graph. Inspired by [Steve Wright, "Digital Compositing for Film and Video"](https://www.amazon.co.jp/Digital-Compositing-Film-Video-Production-ebook/dp/B088NMQHT9/ref=tmm_kin_swatch_0?_encoding=UTF8&qid=&sr=)
 - (Experimential) Detecting Bias in Monte Carlo Renderers using Welch’s t-test ( http://jcgt.org/published/0009/02/01/ )
 
 ## dependencies 
@@ -40,6 +41,7 @@ https://github.com/leeoniya/uPlot
 ![demo](demo-loupe.gif)
 
 ### Slice Graph
+![demo](demo-slice.gif)
 ![demo](demo-slice.png)
 
 ## TODO
