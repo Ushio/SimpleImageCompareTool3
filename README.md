@@ -40,6 +40,7 @@ https://github.com/leeoniya/uPlot
 ![demo](demo-loupe.gif)
 
 ### Slice Graph
+![demo](demo-slice.png)
 
 ## TODO
 - 4 images

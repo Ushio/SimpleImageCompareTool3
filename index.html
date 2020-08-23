@@ -213,9 +213,10 @@
             <div style="text-align: center;">Slice Graph</div>
             <div style="height: 10px"></div> <!--  margin -->
             <button style="
+                background: url('icSliceGraph.svg') no-repeat center;
                 height: 100px;
                 width: 100px;
-                color: rgb(115, 77, 255);
+                border: 2px solid #E8E8E8;
             " onclick="onSliceGraph()"></button>
         </div>
 
@@ -372,6 +373,8 @@ let grabbaseVertices = [
 ];
 let grabbaseX = 0;
 let grabbaseY = 0;
+
+let focusSliceAMT = null;
 
 // for flexible drop
 let glu_directionX = 1;
@@ -571,9 +574,33 @@ glsl.on("render", function(e) {
         uictx.strokeStyle = isInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
         uictx.setLineDash([16, 8]);
         uictx.stroke();
+
+        if(focusSliceAMT !== null)
+        {
+            let fx = lerp(p0x, p1x, focusSliceAMT);
+            let fy = lerp(p0y, p1y, focusSliceAMT);
+
+            uictx.beginPath();
+            uictx.moveTo(fx - SLICE_VERTEX_RADIUS * 0.6, fy - SLICE_VERTEX_RADIUS * 0.6);
+            uictx.lineTo(fx + SLICE_VERTEX_RADIUS * 0.6, fy + SLICE_VERTEX_RADIUS * 0.6);
+            uictx.moveTo(fx - SLICE_VERTEX_RADIUS * 0.6, fy + SLICE_VERTEX_RADIUS * 0.6);
+            uictx.lineTo(fx + SLICE_VERTEX_RADIUS * 0.6, fy - SLICE_VERTEX_RADIUS * 0.6);
+            uictx.lineWidth = 5;
+            uictx.strokeStyle = 'rgba(255, 255, 255, 1)';
+            uictx.setLineDash([]);
+            uictx.stroke();
+
+            uictx.beginPath();
+            uictx.moveTo(fx - SLICE_VERTEX_RADIUS * 0.6, fy - SLICE_VERTEX_RADIUS * 0.6);
+            uictx.lineTo(fx + SLICE_VERTEX_RADIUS * 0.6, fy + SLICE_VERTEX_RADIUS * 0.6);
+            uictx.moveTo(fx - SLICE_VERTEX_RADIUS * 0.6, fy + SLICE_VERTEX_RADIUS * 0.6);
+            uictx.lineTo(fx + SLICE_VERTEX_RADIUS * 0.6, fy - SLICE_VERTEX_RADIUS * 0.6);
+            uictx.lineWidth = 2;
+            uictx.strokeStyle = 'rgba(255, 0, 255, 1)';
+            uictx.setLineDash([]);
+            uictx.stroke();
+        }
     }
-    
-    // uictx.fillRect(mouseLocationXLocalAlways, uicanvas.height - 1 - mouseLocationYLocalAlways, 10, 10);
 });
 
 // UI Drawing
@@ -1894,39 +1921,33 @@ function onSliceGraphUpdate()
         label: "L",
         stroke: "#DD0000",
         dash: lineDash,
-        alpha: 0.7,
     }, 1);
     plot.addSeries({
         value: (self, rawValue) => rawValue.toFixed(3),
         label: "L",
         stroke: "#00DD00",
         dash: lineDash,
-        alpha: 0.7
     }, 2);
     plot.addSeries({
         value: (self, rawValue) => rawValue.toFixed(3),
         label: "L",
         stroke: "#0000DD",
         dash: lineDash,
-        alpha: 0.7
     }, 3);
     plot.addSeries({
         value: (self, rawValue) => rawValue.toFixed(3),
         label: "R",
         stroke: "red",
-        alpha: 0.7
     }, 4);
     plot.addSeries({
         value: (self, rawValue) => rawValue.toFixed(3),
         label: "R",
         stroke: "green",
-        alpha: 0.7
     }, 5);
     plot.addSeries({
         value: (self, rawValue) => rawValue.toFixed(3),
         label: "R",
         stroke: "blue",
-        alpha: 0.7
     }, 6);
 
     plot.setData(sliceGraphData);
@@ -1950,6 +1971,22 @@ function makeChart( container ) {
     const opts = {
         width: 600,
         height: 400,
+        plugins: [
+        {
+            hooks: {
+                setCursor: u => {
+                    const { left, top, idx } = u.cursor;
+                    if( idx == null )
+                    {
+                        focusSliceAMT = null;
+                    }
+                    else
+                    {
+                        focusSliceAMT = idx / (u.data[0].length - 1);
+                    }
+                }
+            }
+        }],
         scales: {
             x: {
                 time: false,
