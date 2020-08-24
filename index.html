@@ -135,13 +135,15 @@
 
         <div style="display: flex; flex-direction:column; align-items: center;" id="fperror">
             <div style="text-align: center;">Floating Point Error</div>
-            <div style="height: 15px"></div> <!--  margin -->
+            <div style="height: 5px"></div> <!--  margin -->
             <div style="text-align: center; font-size: 14px;">NaN</div>
             <input class="Nan_Color" value="#FF0000" style="width:130px"/>
-            <div style="height: 10px"></div> <!--  margin -->
+            <div style="height: 5px"></div> <!--  margin -->
             <div style="text-align: center; font-size: 14px;">Infinity</div>
             <div style="height: 5px"></div> <!--  margin -->
             <input class="Inf_Color" value="#FF00FF" style="width:130px"/>
+            <div style="text-align: center; font-size: 11px;" id="L_fpLabel"></div>
+            <div style="text-align: center; font-size: 11px;" id="R_fpLabel"></div>
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;">
@@ -1347,6 +1349,9 @@ var handleDrop = function(file, sampler, isLeft) {
                     }
                 }
 
+                let nNan = 0;
+                let nInf = 0;
+
                 let nPixels = exrImage.width * exrImage.height;
                 let rgba = new Float32Array(nPixels * 4);
                 for (let i = 0; i < nPixels; i++) {
@@ -1357,6 +1362,15 @@ var handleDrop = function(file, sampler, isLeft) {
                     rgba[i * 4 + 1] = gval;
                     rgba[i * 4 + 2] = bval;
                     rgba[i * 4 + 3] = 1.0;
+
+                    if(Number.isNaN(rval) || Number.isNaN(gval) || Number.isNaN(bval))
+                    {
+                        nNan++;
+                    }
+                    else if(Number.isFinite(rval) == false || Number.isFinite(gval) == false || Number.isFinite(bval) == false)
+                    {
+                        nInf++;
+                    }
                 }
 
                 glsl.setUniform(sampler, { width:exrImage.width, height:exrImage.height, data:rgba });
@@ -1374,6 +1388,15 @@ var handleDrop = function(file, sampler, isLeft) {
                 }
                 floatImageWidth = exrImage.width;
                 floatImageHeight = exrImage.height;
+                
+                if(isLeft)
+                {
+                    $("#L_fpLabel").text(`L NaN: ${nNan}, Inf: ${nInf}`);
+                }
+                else
+                {
+                    $("#R_fpLabel").text(`R NaN: ${nNan}, Inf: ${nInf}`);
+                }
 
                 onTriggeredUpdateImage();
             } );
@@ -1398,6 +1421,15 @@ var handleDrop = function(file, sampler, isLeft) {
             }
             floatImageWidth = 0;
             floatImageHeight = 0;
+
+            if(isLeft)
+            {
+                $("#L_fpLabel").text(``);
+            }
+            else
+            {
+                $("#R_fpLabel").text(``);
+            }
 
             onTriggeredUpdateImage();
         }
