@@ -1208,6 +1208,8 @@ function imagePaste(sampler, dataURL) {
         canvas.height = image.height;
     };
     image.src = dataURL;
+
+    onTriggeredUpdateImage();
 }
 
 $('.PasteAreaL').pastableNonInputable();
@@ -1919,9 +1921,11 @@ function onTriggeredUpdateImage()
     // console.log("onTriggeredUpdateImage");
     glsl.textures["u_image_L"].loading.then( image => {
         imageLRaw = downloadTextureAsFloat(image);
+        onSliceGraphUpdate();
     });
     glsl.textures["u_image_R"].loading.then( image => {
         imageRRaw = downloadTextureAsFloat(image);
+        onSliceGraphUpdate();
     });
 }
 
@@ -1933,6 +1937,7 @@ let sliceGraphData = null;
 function onSliceGraphUpdate()
 {
     if(plot == null) { return; }
+    if(isSliceGraphShowing == false) { return; }
 
     // build data
     let widthSlice = Math.abs(sliceVertices[0].x - sliceVertices[1].x) * canvas.width;
