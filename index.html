@@ -512,12 +512,24 @@ glsl.on("render", function(e) {
 
     if( isSliceGraphShowing )
     {
-        let isInteractable = sliceMode !== SLICE_MODE_NONE || distanceLinePoint(
+        let bodyInteractable = sliceMode !== SLICE_MODE_NONE || distanceLinePoint(
                 sliceVertices[0].x * uicanvas.width, sliceVertices[0].y * uicanvas.height, 
                 sliceVertices[1].x * uicanvas.width, sliceVertices[1].y * uicanvas.height,
                 mouseLocationXLocalAlways,
                 mouseLocationYLocalAlways
         ) < SLICE_VERTEX_RADIUS;
+
+        let begInteractable = distancePointPoint(mouseLocationXLocalAlways, mouseLocationYLocalAlways, sliceVertices[0].x * uicanvas.width, sliceVertices[0].y * uicanvas.height) < SLICE_VERTEX_RADIUS;
+        let endInteractable = distancePointPoint(mouseLocationXLocalAlways, mouseLocationYLocalAlways, sliceVertices[1].x * uicanvas.width, sliceVertices[1].y * uicanvas.height) < SLICE_VERTEX_RADIUS;
+        if(begInteractable || endInteractable)
+        {
+            bodyInteractable = false;
+        }
+        if(bodyInteractable)
+        {
+            begInteractable = true;
+            endInteractable = true;
+        }
 
         // flip y and relative to absolute
         let p0x = sliceVertices[0].x * uicanvas.width;
@@ -539,39 +551,61 @@ glsl.on("render", function(e) {
         let dxArrow1 = Math.cos(arrowTheta1) * dx - Math.sin(arrowTheta1) * dy;
         let dyArrow1 = Math.sin(arrowTheta1) * dx + Math.cos(arrowTheta1) * dy;
     
+        // Origin base
         uictx.lineCap = "round";
         uictx.beginPath();
         uictx.arc(p0x, p0y, SLICE_VERTEX_RADIUS * 0.5 /* R */, 0, 2 * Math.PI, false);
-        uictx.lineWidth = isInteractable ? 8 : 6;
-        uictx.strokeStyle = isInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
+        uictx.lineWidth = begInteractable ? 8 : 6;
+        uictx.strokeStyle = begInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
         uictx.stroke();
 
-        function arrowPath(ctx)
+        function arrowBody(ctx)
         {
             ctx.moveTo(p0x, p0y);
             ctx.lineTo(p1x, p1y);
+        };
+        function arrowHead(ctx)
+        {
             ctx.moveTo(p1x, p1y);
             ctx.lineTo(p1x + dxArrow0 * SLICE_VERTEX_RADIUS * 0.8, p1y + dyArrow0 * SLICE_VERTEX_RADIUS * 0.8);
             ctx.moveTo(p1x, p1y);
             ctx.lineTo(p1x + dxArrow1 * SLICE_VERTEX_RADIUS * 0.8, p1y + dyArrow1 * SLICE_VERTEX_RADIUS * 0.8);
         };
-    
+        
+        // Body base
         uictx.beginPath();
-        arrowPath(uictx);
-        uictx.lineWidth = isInteractable ? 6 : 4;
-        uictx.strokeStyle = isInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
+        arrowBody(uictx);
+        uictx.lineWidth = bodyInteractable ? 6 : 4;
+        uictx.strokeStyle = bodyInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
         uictx.stroke();
 
+        // Head base
+        uictx.beginPath();
+        arrowHead(uictx);
+        uictx.lineWidth = endInteractable ? 6 : 4;
+        uictx.strokeStyle = endInteractable ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
+        uictx.stroke();
+
+        // Origin
         uictx.beginPath();
         uictx.arc(p0x, p0y, SLICE_VERTEX_RADIUS * 0.5 /* R */, 0, 2 * Math.PI, false);
         uictx.lineWidth = 1.5;
-        uictx.strokeStyle = isInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
+        uictx.strokeStyle = begInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
         uictx.stroke();
 
+        // Body
         uictx.beginPath();
-        arrowPath(uictx);
+        arrowBody(uictx);
         uictx.lineWidth = 1.5;
-        uictx.strokeStyle = isInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
+        uictx.strokeStyle = bodyInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
+        uictx.setLineDash([16, 8]);
+        uictx.stroke();
+
+        // Head
+        uictx.beginPath();
+        arrowHead(uictx);
+        uictx.lineWidth = 1.5;
+        uictx.strokeStyle = endInteractable ? 'rgba(255, 0, 0, 1)' : 'rgba(230, 0, 0, 0.8)';
         uictx.setLineDash([16, 8]);
         uictx.stroke();
 
@@ -918,6 +952,12 @@ $(EVENT_VIEW).mouseleave(function(e){
     updateMouseLocation(e);
 });
 
+function distancePointPoint(p0x, p0y, p1x, p1y)
+{
+    let dx = p0x - p1x;
+    let dy = p0y - p1y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
 function distanceLinePoint(p0x, p0y, p1x, p1y, ox, oy)
 {
     let p0 = {x:p0x, y:p0y};
