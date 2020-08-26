@@ -217,7 +217,7 @@
                 height: 100px;
                 width: 100px;
                 border: 2px solid #E8E8E8;
-            " onclick="onSliceGraph()"></button>
+            " onclick="onSliceGraph()" id="slicebutton"></button>
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto; background-image:url(gradient.png); background-size: 100% 23%; background-repeat: no-repeat;">
@@ -2106,10 +2106,14 @@ function onSliceGraph()
             onSliceGraphUpdate();
         }, 10);
         plot.setSize( {width: defaultWidth, height: defaultHeight - 10 /* fixbias*/ - 80} );
+
+        $('#slicebutton').prop('disabled', true);
        },
        close: function (event) {
         isSliceGraphShowing = false;
         invokeRender();
+
+        $('#slicebutton').prop('disabled', false);
        },
        resize: function( event, ui ) {
         plot.setSize( {width: ui.size.width, height: ui.size.height - 80} );
