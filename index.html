@@ -206,6 +206,7 @@
                 <option value="1.0">Gamma 1.0</option>
                 <option value="2.2" selected>Gamma 2.2</option>
                 <option value="2.4">Gamma 2.4</option>
+                <option value="1.0">ACEScg to sRGB</option>
             </select>
         </div>
 
@@ -669,6 +670,7 @@ precision mediump float;
     uniform float u_postProcess;
     uniform float u_postScale;
     uniform float u_postGamma;
+    uniform float u_ACEScgToSRGB;
 
     uniform float u_welchOverlay;
 
@@ -688,13 +690,39 @@ precision mediump float;
         return x - base;
     }
 
+    float sRGBGamma( float u )
+    {
+        if( u < 0.0031308 )
+        {
+            return 12.92 * u;
+        }
+        return 1.055 * pow(u, 1.0 / 2.4) - 0.055;
+    }
     vec4 applyPost(vec4 c)
     {
         if( u_postProcess != 0.0 )
         {
-            c.x = pow(u_postScale * c.x, 1.0 / u_postGamma);
-            c.y = pow(u_postScale * c.y, 1.0 / u_postGamma);
-            c.z = pow(u_postScale * c.z, 1.0 / u_postGamma);
+            if( u_ACEScgToSRGB != 0.0 )
+            {
+                // https://www.colour-science.org/apps/
+                // ACEScg to sRGB
+                // Chromatic Adaption Transform: Bianco
+                c *= u_postScale;
+                float r = c.x * 1.7070626733 + c.y * -0.6199595404 + c.z * -0.0872598502;
+                float g = c.x * -0.1309768295 + c.y * 1.1390322752 + c.z * -0.0079562968;
+                float b = c.x * -0.0245106012 + c.y * -0.1248109317 + c.z * 1.1493959705;
+                c = vec4(
+                    sRGBGamma( r ), 
+                    sRGBGamma( g ), 
+                    sRGBGamma( b ), 
+                    1.0);
+            }
+            else
+            {
+                c.x = pow(u_postScale * c.x, 1.0 / u_postGamma);
+                c.y = pow(u_postScale * c.y, 1.0 / u_postGamma);
+                c.z = pow(u_postScale * c.z, 1.0 / u_postGamma);
+            }
         }
         return c;
     }
@@ -846,6 +874,7 @@ glsl.setUniform("u_loupeScale", 2.0);
 glsl.setUniform("u_postProcess", 0.0);
 glsl.setUniform("u_postScale", 1.0);
 glsl.setUniform("u_postGamma", 2.2);
+glsl.setUniform("u_ACEScgToSRGB", 0.0);
 glsl.setUniform("u_welchOverlay", 0.0);
 glsl.setUniform("u_hilightL", 0.0);
 glsl.setUniform("u_hilightR", 0.0);
@@ -1263,6 +1292,9 @@ $("#postScale").on("input", function(e) {
 });
 $("#GammaSelect").change(function() {
     let value = $(this).val();
+    let label = $(this).find('option:selected').text();
+
+    glsl.setUniform("u_ACEScgToSRGB", label === "ACEScg to sRGB" ? 1.0 : 0.0 );
     glsl.setUniform("u_postGamma", parseFloat(value));
 });
 
