@@ -1950,15 +1950,23 @@ function downloadTextureAsFloat(image)
 }
 function onTriggeredUpdateImage()
 {
-    // console.log("onTriggeredUpdateImage");
-    glsl.textures["u_image_L"].loading.then( image => {
-        imageLRaw = downloadTextureAsFloat(image);
-        onSliceGraphUpdate();
-    });
-    glsl.textures["u_image_R"].loading.then( image => {
-        imageRRaw = downloadTextureAsFloat(image);
-        onSliceGraphUpdate();
-    });
+    let u_image_L_Loading = glsl.textures["u_image_L"].loading;
+    let u_image_R_Loading = glsl.textures["u_image_R"].loading;
+
+    if( u_image_L_Loading !== null )
+    {
+        u_image_L_Loading.then( image => {
+            imageLRaw = downloadTextureAsFloat(image);
+            onSliceGraphUpdate();
+        });
+    }
+    if( u_image_R_Loading !== null )
+    {
+        u_image_R_Loading.then( image => {
+            imageRRaw = downloadTextureAsFloat(image);
+            onSliceGraphUpdate();
+        });
+    }
 }
 
 // Run once for initialize
