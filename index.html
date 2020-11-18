@@ -387,6 +387,22 @@ let glu_mouselocationY = canvas.height * 0.5;
 let mouseLocationXLocalAlways = 0;
 let mouseLocationYLocalAlways = 0;
 
+function setCanvasSize( w, h )
+{
+    if( canvas.width === w && canvas.height === h )
+    {
+        return;
+    }
+
+    let nx = glu_mouselocationX / canvas.width;
+    let ny = glu_mouselocationY / canvas.height;
+    canvas.width = w;
+    canvas.height = h;
+    glu_mouselocationX = nx * canvas.width;
+    glu_mouselocationY = ny * canvas.height;
+    glsl.setUniform("u_mouselocation", glu_mouselocationX , glu_mouselocationY);
+}
+
 function getImageLabelL() 
 {
     return $("#Label_L_override")[0].value || L_filename;
@@ -1233,8 +1249,7 @@ function imagePaste(sampler, dataURL) {
 
     const image = new Image();
     image.onload = function() {
-        canvas.width = image.width;
-        canvas.height = image.height;
+        setCanvasSize( image.width, image.height );
     };
     image.src = dataURL;
 
@@ -1447,8 +1462,7 @@ var handleDrop = function(file, sampler, isLeft) {
 
                 glsl.setUniform(sampler, { width:exrImage.width, height:exrImage.height, data:rgba });
 
-                canvas.width = exrImage.width;
-                canvas.height = exrImage.height;
+                setCanvasSize( exrImage.width, exrImage.height );
 
                 if(isLeft)
                 {
@@ -1478,8 +1492,7 @@ var handleDrop = function(file, sampler, isLeft) {
             glsl.setUniform(sampler, event.target.result);
             const image = new Image();
             image.onload = function() {
-                canvas.width = image.width;
-                canvas.height = image.height;
+                setCanvasSize( image.width, image.height );
             };
             image.src = event.target.result;
 
