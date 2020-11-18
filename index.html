@@ -27,6 +27,9 @@
     <script src="uPlot.iife.js"></script>
     <link rel="stylesheet" href="uPlot.min.css">
 
+    <script src="UPNG.js"></script>
+    <script src="pako.min.js"></script>
+    <script src="jquery.blockUI.js"></script>
     <style>
         .dragover {
             background:rgb(193, 225, 255);
@@ -237,6 +240,16 @@
         <div style="display: flex; flex-direction:column; align-items: center; flex-basis: 250px; height: 160px; display: none;" id="pUI">
             <canvas id="wcanvas" style="max-width:100%; height:auto; margin: -6px;"></canvas>
             <!-- background-color: aqua;  -->
+        </div>
+        <div style="display: flex; flex-direction:column; align-items: center;">
+            <div style="text-align: center;">Record</div>
+            <div style="height: 10px"></div> <!--  margin -->
+            <button style="
+                background: url('Rec.svg') no-repeat center;
+                height: 100px;
+                width: 100px;
+                color: white;
+            " id="REC" onclick="onSaveAnimation()"></button>
         </div>
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Save</div>
@@ -914,6 +927,11 @@ const EVENT_VIEW = "#uicanvas";
 
 var down = false;
 
+let isRecording = false;
+let recMove = 0.0;
+let recFrames = [];
+let recDates = [];
+
 // mouseLocationXLocalAlways, mouseLocationYLocalAlways are always updated.
 // glu_mouselocationX, glu_mouselocationY and glsl.setUniform are updated just when down == true
 function updateMouseLocation(e) {
@@ -930,6 +948,30 @@ function updateMouseLocation(e) {
     const x = e.offsetX * scale;
     const y = canvas.height - e.offsetY * scale;
     if(down) {
+        // recording process 
+        if( isRecording )
+        {
+            let dx = glu_mouselocationX - x;
+            let dy = glu_mouselocationY - y;
+            recMove += Math.sqrt(dx * dx + dy * dy);
+            if( 16 < recMove )
+            {
+                recMove = 0.0;
+
+                glsl.setUniform("u_mouselocation", Math.round(x), Math.round(y));
+                invokeRender();
+    
+                compositecanvas.width = canvas.width;
+                compositecanvas.height = canvas.height;
+                const compositecanvasCtx = compositecanvas.getContext('2d');
+                compositecanvasCtx.drawImage(canvas, 0, 0);
+                compositecanvasCtx.drawImage(uicanvas, 0, 0);
+                
+                recFrames.push( compositecanvasCtx.getImageData(0,0,canvas.width,canvas.height).data );
+                recDates.push( new Date() );
+            }
+        }
+
         glu_mouselocationX = x;
         glu_mouselocationY = y;
         glsl.setUniform("u_mouselocation", Math.round(x), Math.round(y));
@@ -983,15 +1025,49 @@ $("html").mousemove(function(e) {
         e.preventDefault();
     }
 });
-$("html").mouseup(function() {
+function mouseUp()
+{
     down = false;
     sliceVertexGrab = -1;
     sliceMode = SLICE_MODE_NONE;
+
+    if( isRecording )
+    {
+        if( 1 < recFrames.length )
+        {
+            $.blockUI({ message: 'encoding...' });
+            
+            setTimeout(() => {
+                let dels = [];
+                recDates.push(new Date());
+                for(let i = 0 ; i < recDates.length - 1 ; ++i)
+                {
+                    let delta = recDates[i + 1].getTime() - recDates[i].getTime();
+                    dels.push( delta );
+                }
+
+                let apng = UPNG.encode( recFrames, canvas.width,canvas.height, 0, dels );
+                let blob = new Blob([apng], {type: "application/octet-stream"});
+                saveAs(blob, "compare.png");
+                
+                recFrames = [];
+                recDates = [];
+
+                $.unblockUI();
+            }, 200);
+        }
+
+        isRecording = false;
+        recMove = 0.0;
+
+        $('#REC').css('background-image', 'url(Rec.svg)');
+    }
+}
+$("html").mouseup(function() {
+    mouseUp();
 });
 $(EVENT_VIEW).mouseup(function(e) {
-    down = false;
-    sliceVertexGrab = -1;
-    sliceMode = SLICE_MODE_NONE;
+    mouseUp();
 });
 $(EVENT_VIEW).mouseleave(function(e){
     updateMouseLocation(e);
@@ -1330,6 +1406,10 @@ function onSave() {
 
     var imgdata = compositecanvas.toDataURL('image/png');
     saveAs(imgdata, "compare.png");
+}
+function onSaveAnimation() {
+    isRecording = true;
+    $('#REC').css('background-image', 'url(RecAct.svg)');
 }
 
 // function onDebug() {

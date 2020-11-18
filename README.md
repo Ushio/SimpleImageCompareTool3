@@ -30,6 +30,12 @@ https://github.com/disneyresearch/openexr-wrap-em
 
 https://github.com/leeoniya/uPlot
 
+https://github.com/photopea/UPNG.js
+
+https://github.com/nodeca/pako
+
+http://jquery.malsup.com/block/#overview
+
 ## How to use
 ### Basic Usage
 ![demo](demo.gif)
