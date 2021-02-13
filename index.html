@@ -1542,8 +1542,6 @@ $("#layerR").on("change", function(e) {
 });
 function updateExrLayerUI()
 {
-    let updated = false;
-    let hidden = $('#layerview').is(":hidden");
     let newHidden = !( imageLayeredL || imageLayeredR );
     if( newHidden )
     {
@@ -1553,46 +1551,12 @@ function updateExrLayerUI()
     {
         $('#layerview').show();
     }
-    if( hidden != newHidden )
-    {
-        updated = true;
-    }
-
-    let hiddenL = $('#layerL').is(":hidden");
-    let hiddenR = $('#layerR').is(":hidden");
     let newHiddenL = imageLayeredL === null || imageLayeredL.isRGBOnly();
     let newHiddenR = imageLayeredR === null || imageLayeredR.isRGBOnly();
+    $("#layerL").css('visibility', newHiddenL ? 'hidden' : 'visible' );
+    $("#layerR").css('visibility', newHiddenR ? 'hidden' : 'visible' );
 
-    if( newHiddenL )
-    {
-        $("#layerL").hide();
-    }
-    else
-    {
-        $("#layerL").show();
-    }
-    if( newHiddenR )
-    {
-        $("#layerR").hide();
-    }
-    else
-    {
-        $("#layerR").show();
-    }
-    
-    if( hiddenL != newHiddenL )
-    {
-        updated = true;
-    }
-    if( hiddenR != newHiddenR )
-    {
-        updated = true;
-    }
-
-    if( updated )
-    {
-        invokeRender();
-    }
+    invokeRender();
 }
 
 var handleDrop = function(file, sampler, isLeft) {
