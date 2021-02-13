@@ -67,10 +67,10 @@
 
 <div id="layerview" style="display:none;">
 <div style="margin-left: 30px; margin-right: 30px; display: flex; justify-content: space-between;" >
-    <select id="layerL" name="layerL">
+    <select id="layerL" name="layerL" style="font-size: 18px;">
         <option value="">RGB</option>
     </select>
-    <select id="layerR" name="layerR">
+    <select id="layerR" name="layerR" style="font-size: 18px;">
         <option value="">RGB</option>
     </select>
 </div>
@@ -753,7 +753,7 @@ precision mediump float;
         } else if( isinf(c.x) || isinf(c.y) || isinf(c.z) || isinf(c.w) ) {
             c = vec4(u_Inf_Color, 1.0);
         }
-        return c;
+        return clamp(c, vec4(0.0), vec4(1024.0));
     }
     vec4 GetImageR(vec2 st)
     {
@@ -763,7 +763,7 @@ precision mediump float;
         } else if( isinf(c.x) || isinf(c.y) || isinf(c.z) || isinf(c.w) ) {
             c = vec4(u_Inf_Color, 1.0);
         }
-        return c;
+        return clamp(c, vec4(0.0), vec4(1024.0));
     }
     vec4 addHilightL(vec4 c)
     {
@@ -1540,7 +1540,6 @@ $("#layerR").on("change", function(e) {
     let layer = imageLayeredR.getLayer(value);
     setLayer( layer, "u_image_R", false );
 });
-
 function updateExrLayerUI()
 {
     let updated = false;
