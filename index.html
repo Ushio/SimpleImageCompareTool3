@@ -22,8 +22,6 @@
     <link rel="stylesheet" href="slider.css">
     <link rel="stylesheet" href="combo.css">
 
-    <script src="Chart.js"></script>
-
     <script src="uPlot.iife.js"></script>
     <link rel="stylesheet" href="uPlot.min.css">
 
@@ -66,6 +64,21 @@
         <div id="drop-zoneR" style="height: 50px; width: 100%; border: thin solid #acacac;  border-radius: 10px;"><span class="boxspan">Right Image (Please drop your image here)</span></div>
     </div>
 </div>
+
+<div style="margin-left: 30px; margin-right: 30px; display: flex; justify-content: space-between;">
+    <select id="layerL" name="layerL">
+        <option value="">RGB</option>
+        <option value="↘">AOV Color</option>
+        <option value="↗">AOV Normal</option>
+    </select>
+    <select id="layerR" name="layerR">
+        <option value="">RGB</option>
+        <option value="↘">AOV Color</option>
+        <option value="↗">AOV Normal</option>
+    </select>
+</div>
+
+<div style="height: 8px"></div> <!--  margin -->
 
 <div style="display: flex; justify-content: center; align-items: baseline;" id="glcontainer">
     <canvas id="glcanvas" style="max-width:100%; height:auto;" class="disablePixelFilter">
@@ -224,23 +237,6 @@
             " onclick="onSliceGraph()" id="slicebutton"></button>
         </div>
 
-        <div style="display: flex; flex-direction:column; align-items: center;  margin-left: auto; background-image:url(gradient.png); background-size: 100% 23%; background-repeat: no-repeat;">
-            <div style="text-align: center; opacity:0.3;" id="WelchLabel"> Welch (exr only)</div>
-            <div style="height: 14px"></div> <!--  margin -->
-            <button style="
-                background: url('welch.svg') no-repeat center;
-                height: 80px;
-                width: 80px;
-                color: white;
-                opacity:0.3;
-            " onclick="onWelch()" id="WelchButton"></button>
-            <div style="height: 20px"></div> <!--  margin -->
-            <input type="range" value="0" min="0" max="100" step="1" id="WelchSlider" style="opacity:0.3;" class="slider">
-        </div>
-        <div style="display: flex; flex-direction:column; align-items: center; flex-basis: 250px; height: 160px; display: none;" id="pUI">
-            <canvas id="wcanvas" style="max-width:100%; height:auto; margin: -6px;"></canvas>
-            <!-- background-color: aqua;  -->
-        </div>
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Record</div>
             <div style="height: 10px"></div> <!--  margin -->
@@ -286,17 +282,6 @@
         </div> -->
     </div>
 </div>
-
-<details>
-    <summary>Welch Notes</summary>
-    <ul>
-    <li>Violet is danger area. But all Violet is won't necessarily mean wrong.</li>
-    <li>Uniform-distribution of p-value is good. but there are some exceptions on high match tile e.g. EnvMap. it could cause unbalanced distribution. </li>
-    <li>You could capture pretty faint errors like this ( metallic parameter 0.00 vs 0.01 )</li>
-    </ul>
-    
-    <img src="welch_example.png"></img>
-</details>
 
 <script>
 'use strict';
@@ -355,12 +340,6 @@ canvas.width = 1200;
 canvas.height = 722;
 
 const HILIGHT_VALUE = 0.4;
-
-// For welch
-var floatImageWidth  = 0;
-var floatImageHeight = 0;
-var floatImageL = null;
-var floatImageR = null;
 
 // for Slice Graph. left to right and top to bottom order.
 let imageLRaw = null;
@@ -701,14 +680,11 @@ precision mediump float;
     uniform float u_postGamma;
     uniform float u_ACEScgToSRGB;
 
-    uniform float u_welchOverlay;
-
     uniform float u_hilightL;
     uniform float u_hilightR;
 
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
-    uniform sampler2D u_image_welch;
 
     uniform vec3 u_Nan_Color;
     uniform vec3 u_Inf_Color;
@@ -869,13 +845,6 @@ precision mediump float;
             float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
             gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
         }
-
-        // welch
-        if( 0.0 < u_welchOverlay )
-        {
-            vec3 welch = texture2D( u_image_welch, st ).rgb;
-            gl_FragColor.rgb = mix( gl_FragColor.rgb, welch, u_welchOverlay );
-        }
         
         gl_FragColor.a = 1.0;
     }
@@ -904,22 +873,10 @@ glsl.setUniform("u_postProcess", 0.0);
 glsl.setUniform("u_postScale", 1.0);
 glsl.setUniform("u_postGamma", 2.2);
 glsl.setUniform("u_ACEScgToSRGB", 0.0);
-glsl.setUniform("u_welchOverlay", 0.0);
 glsl.setUniform("u_hilightL", 0.0);
 glsl.setUniform("u_hilightR", 0.0);
 glsl.setUniform("u_Nan_Color", 1.0, 0.0, 0.0);
 glsl.setUniform("u_Inf_Color", 1.0, 0.0, 1.0);
-{
-    let nPixels = 2 * 2;
-    let rgba = new Float32Array(nPixels * 4);
-    for (let i = 0; i < nPixels; i++) {
-        rgba[i * 4 + 0] = 1.0;
-        rgba[i * 4 + 1] = 1.0;
-        rgba[i * 4 + 2] = 1.0;
-        rgba[i * 4 + 3] = 1.0;
-    }
-    glsl.setUniform("u_image_welch", { width:2, height:2, data:rgba });
-}
 
 // Mouse Move & Mouse Up is need global event  -> html
 // Mouse Down shouldn't work outside of canvas -> EVENT_VIEW
@@ -1389,13 +1346,6 @@ $("#GammaSelect").change(function() {
     glsl.setUniform("u_postGamma", parseFloat(value));
 });
 
-$("#WelchSlider").on("input", function(e) {
-    const value = this.value;
-    const scale = parseFloat(value) / 100.0;
-    glsl.setUniform("u_welchOverlay", scale);
-});
-
-
 // on save
 function onSave() {
     compositecanvas.width = canvas.width;
@@ -1473,6 +1423,83 @@ function updatePlaceHolder() {
     $('#Label_L_override').attr("placeholder", L_filename);
     $('#Label_R_override').attr("placeholder", R_filename);
 }
+
+class LayeredExrImage {
+    constructor( exrImage ) {
+        this.exrImage = exrImage;
+        let channels = exrImage.channels();
+        let hasRGB = channels.includes("R") && channels.includes("G") && channels.includes("B");
+
+        this.colorChannels = {};
+        if( hasRGB )
+        {
+            this.colorChannels["RGB"] = [exrImage.plane("R"), exrImage.plane("G"), exrImage.plane("B")];
+        }
+
+        let otherColorChannels = 
+            channels
+            .filter( c => c.includes('.') )
+            .map( c => c.slice( 0, c.length - 2 ));
+            otherColorChannels = Array.from(new Set(otherColorChannels));
+        
+        for( let i = 0 ; i < otherColorChannels.length ; i++ )
+        {
+            let ch = otherColorChannels[i];
+            let r = exrImage.plane(ch + ".R") ?? exrImage.plane(ch + ".X");
+            let g = exrImage.plane(ch + ".G") ?? exrImage.plane(ch + ".Y");
+            let b = exrImage.plane(ch + ".B") ?? exrImage.plane(ch + ".Z");
+            if( r && g && b )
+            {
+                this.colorChannels[ch] = [r, g, b];
+            }
+        }
+    }
+    getDefaultLayer()
+    {
+        if( this.colorChannels["RGB"] )
+        {
+            return this.getLayer("RGB");
+        }
+        return this.getLayer( Object.keys( this.colorChannels )[0] );
+    }
+    getLayer( layer ) 
+    {
+        let rgb = this.colorChannels[layer];
+        let nNan = 0;
+        let nInf = 0;
+        let r = rgb[0];
+        let g = rgb[1];
+        let b = rgb[2];
+        let nPixels = this.exrImage.width * this.exrImage.height;
+        let rgba = new Float32Array(nPixels * 4);
+        for (let i = 0; i < nPixels; i++) {
+            let rval = r[i];
+            let gval = g[i];
+            let bval = b[i];
+            rgba[i * 4 + 0] = rval;
+            rgba[i * 4 + 1] = gval;
+            rgba[i * 4 + 2] = bval;
+            rgba[i * 4 + 3] = 1.0;
+
+            if(Number.isNaN(rval) || Number.isNaN(gval) || Number.isNaN(bval))
+            {
+                nNan++;
+            }
+            else if(Number.isFinite(rval) == false || Number.isFinite(gval) == false || Number.isFinite(bval) == false)
+            {
+                nInf++;
+            }
+        }
+        return { 
+            width: this.exrImage.width, 
+            height: this.exrImage.height, 
+            data:rgba ,
+            nNan: nNan,
+            nInf: nInf
+        }
+    }
+}
+
 var handleDrop = function(file, sampler, isLeft) {
     if(isLeft) {
         L_filename = rmExt(file.name);
@@ -1490,70 +1517,15 @@ var handleDrop = function(file, sampler, isLeft) {
         if(isExr)
         {
             window.loadExr( event.target.result, function(exrImage) {
-                console.log(exrImage.width, exrImage.height);
+                let layered = new LayeredExrImage( exrImage );
 
-                let channels = exrImage.channels();
-                console.log(channels);
-                
-                let r = null;
-                let g = null;
-                let b = null;
-                for(let i = 0 ; i < channels.length ; i++)
-                {
-                    let ch = channels[i];
-                    let chlower = ch.toLowerCase();
-                    if(chlower.endsWith('r'))
-                    {
-                        r = exrImage.plane(ch);
-                    }
-                    else if(chlower.endsWith('g'))
-                    {
-                        g = exrImage.plane(ch);
-                    }
-                    else if(chlower.endsWith('b'))
-                    {
-                        b = exrImage.plane(ch);
-                    }
-                }
-
-                let nNan = 0;
-                let nInf = 0;
-
-                let nPixels = exrImage.width * exrImage.height;
-                let rgba = new Float32Array(nPixels * 4);
-                for (let i = 0; i < nPixels; i++) {
-                    let rval = r != null ? r[i] : 0.0;
-                    let gval = g != null ? g[i] : 0.0;
-                    let bval = b != null ? b[i] : 0.0;
-                    rgba[i * 4 + 0] = rval;
-                    rgba[i * 4 + 1] = gval;
-                    rgba[i * 4 + 2] = bval;
-                    rgba[i * 4 + 3] = 1.0;
-
-                    if(Number.isNaN(rval) || Number.isNaN(gval) || Number.isNaN(bval))
-                    {
-                        nNan++;
-                    }
-                    else if(Number.isFinite(rval) == false || Number.isFinite(gval) == false || Number.isFinite(bval) == false)
-                    {
-                        nInf++;
-                    }
-                }
-
-                glsl.setUniform(sampler, { width:exrImage.width, height:exrImage.height, data:rgba });
+                let defaultLayer = layered.getDefaultLayer();
+                glsl.setUniform( sampler, defaultLayer );
+                let rgba = defaultLayer.data;
+                let nNan = defaultLayer.nNan;
+                let nInf = defaultLayer.nInf;
 
                 setCanvasSize( exrImage.width, exrImage.height );
-
-                if(isLeft)
-                {
-                    floatImageL = rgba;
-                }
-                else
-                {
-                    floatImageR = rgba;
-                }
-                floatImageWidth = exrImage.width;
-                floatImageHeight = exrImage.height;
                 
                 if(isLeft)
                 {
@@ -1575,17 +1547,6 @@ var handleDrop = function(file, sampler, isLeft) {
                 setCanvasSize( image.width, image.height );
             };
             image.src = event.target.result;
-
-            if(isLeft)
-            {
-                floatImageL = null;
-            }
-            else
-            {
-                floatImageR = null;
-            }
-            floatImageWidth = 0;
-            floatImageHeight = 0;
 
             if(isLeft)
             {
@@ -1717,267 +1678,6 @@ $("#drop-zoneR").on("click", function(e) {
     input.click();
 });
 
-function avariableWelch()
-{
-    if( floatImageWidth !== 0 && floatImageHeight !== 0 && floatImageL !== null && floatImageR !== null && floatImageL.length === floatImageR.length )
-    {
-        return true;
-    }
-    return false;
-}
-
-function updateWelchUI()
-{
-    var enable = avariableWelch();
-    const op = enable ? 1.0 : 0.3;
-    $("#WelchLabel").css("opacity", op);
-    $("#WelchButton").css("opacity", op);
-    $("#WelchSlider").css("opacity", op);
-}
-setInterval("updateWelchUI()", 500); 
-
-class OnlineVariance {
-    constructor() {
-        this._count = 0;
-        this._mean = 0;
-        this._M2 = 0;
-    }
-    addSample( newValue ) {
-        this._count++;
-        let delta = newValue - this._mean;
-        this._mean += delta / this._count;
-        let delta2 = newValue - this._mean;
-        this._M2 += delta * delta2;
-    }
-    mean() {
-        return this._mean;
-    }
-    sampleVariance() {
-        if (this._count == 0)
-        {
-            return 0.0;
-        }
-        return this._M2 / this._count;
-    }
-    unbiasedVariance()  {
-        if (this._count === 0)
-        {
-            return 0.0;
-        }
-        return this._M2 / (this._count - 1);
-    }
-    sampleCount() {
-        return this._count;
-    }
-}
-function sqr(x) {
-    return x * x;
-}
-function gauss_Pnu(t)
-{
-    let tt = t > 0 ? t : -t;
-    tt = tt / Math.sqrt(2.0);
-
-    const x = 1.0 / (1.0 + 0.47047 * tt);
-    const erf = 1.0 - x * (0.3480242
-        + x * (-0.0958798
-            + 0.7478556 * x))
-        * Math.exp(-tt * tt);
-    return 1.0 - erf;
-}
-// color coding
-// input float between 0 and 1
-// output colour ramp
-function viridis_quintic( x )     
-{
-    x = Math.min(1.0, x);
-    const x2 = x * x;
-    const x3 = x2 * x;
-    const x4 = x2 * x2;
-    const x5 = x3 * x2;
-    let col = [0.0, 0.0, 0.0];
-    col[0] = +0.280268003 - 0.143510503 * x + 2.225793877 * x2 - 14.815088879 * x3 + 25.212752309 * x4 - 11.772589584 * x5;
-    col[1] = -0.002117546 + 1.617109353 * x - 1.909305070 * x2 + 2.701152864 * x3 - 1.685288385 * x4 + 0.178738871 * x5;
-    col[2] = +0.300805501 + 2.614650302 * x - 12.019139090 * x2 + 28.933559110 * x3 - 33.491294770 * x4 + 13.762053843 * x5;
-    return col;
-}
-
-let pHistgram = [];
-
-const wcanvas = document.getElementById('wcanvas');
-wcanvas.width = 300;
-wcanvas.height = 215;
-const wctx = wcanvas.getContext('2d');
-
-function toFixed(value, precision) {
-    var power = Math.pow(10, precision || 0);
-    return String(Math.round(value * power) / power);
-}
-let labels = []
-for(let i = 0 ; i < 10 ; i++)
-{
-    labels.push(toFixed(i / 10.0, 2) + "-" + toFixed((i + 1) / 10.0, 2) );
-    // pHistgram.push(Math.random() * 100.0);
-    pHistgram.push(0);
-}
-Chart.defaults.global.animation.duration = 300;
-let chart = new Chart(wctx, {
-    type: 'horizontalBar',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: 'p Value Histgram',
-            backgroundColor: 'rgb(255, 99, 132)',
-            borderColor: 'rgb(255, 99, 132)',
-            data: pHistgram
-        }]
-    },
-
-    // Configuration options go here
-    options: {
-        scales: {
-            xAxes: [{
-                ticks: {
-                    beginAtZero: true
-                }
-            }]
-        },
-        responsive: true, 
-        maintainAspectRatio: false
-    }
-});
-
-function onWelch()
-{
-    if( avariableWelch() )
-    {
-        // ok
-    }
-    else
-    {
-        return;
-    }
-
-    let onlineVar = new OnlineVariance();
-    onlineVar.addSample(1);
-    onlineVar.addSample(3);
-    onlineVar.addSample(4);
-
-    let tileSize = 30;
-    let tileCountX = Math.floor(floatImageWidth / tileSize);
-    let tileCountY = Math.floor(floatImageHeight / tileSize);
-
-    let nPixels = floatImageWidth * floatImageHeight;
-    let rgba = new Float32Array(nPixels * 4);
-
-    for(let i = 0 ; i < 10 ; ++i)
-    {
-        pHistgram[i] = 0;
-    }
-
-    for (let yi = 0; yi < tileCountY; ++yi)
-    {
-        for (let xi = 0; xi < tileCountX; ++xi)
-        {
-            let minP = 1.0;
-
-            // per compornent
-            for(let i = 0 ; i < 3 ; ++i)
-            {
-                let va1 = new OnlineVariance();
-                let va2 = new OnlineVariance();
-                for(let y = 0; y < tileSize; ++y)
-                {
-                    for (let x = 0; x < tileSize; ++x)
-                    {
-                        let sX = xi * tileSize + x;
-                        let sY = yi * tileSize + y;
-                        let sIndex = sY * floatImageWidth + sX;
-                        va1.addSample( floatImageL[sIndex * 4 + i] );
-                        va2.addSample( floatImageR[sIndex * 4 + i] );
-                    }
-                }
-
-                let SEwSquared =
-                    va1.unbiasedVariance() / va1.sampleCount()
-                    +
-                    va2.unbiasedVariance() / va2.sampleCount();
-                let SEw = Math.sqrt( SEwSquared );
-
-                // final p value
-                let p;
-
-                if ( SEw < Number.EPSILON )
-                {
-                    p = 1.0;
-                }
-                else
-                {
-                    // t value
-                    let t = ( va1.mean() - va2.mean() ) / SEw;
-
-                    // TODO 
-                    // Degree of Freedom
-                    // let nuf =
-                    //     sqr(SEwSquared) /
-                    //     (
-                    //         sqr( va1.unbiasedVariance() ) / ( sqr( va1.sampleCount() ) * ( va1.sampleCount() - 1 ) )
-                    //         +                                      
-                    //         sqr( va2.unbiasedVariance() ) / ( sqr( va2.sampleCount() ) * ( va2.sampleCount() - 1 ) )
-                    //     );
-                    // let nu = Math.round( nuf );
-                    // console.log(nu);
-
-                    // if( nu < 20 )
-                    // {
-                    //     p = 2.f * t_Pnu_half(-std::fabs(t), nu );
-                    // }
-                    // else
-                    // {
-                    //     p = gauss_Pnu( t );
-                    // }
-
-                    p = gauss_Pnu( t );
-                    
-                    // calc histgram
-                    const index = Math.min(Math.floor(p * 10.0), 9);
-                    // console.log(p + "/" + index);
-                    pHistgram[index]++;
-                }
-
-                minP = Math.min(minP, p);
-            }
-
-            // glm::vec3 color;
-            // viridis_quintic(p, glm::value_ptr(color));
-            // pImage(xi, yi) = glm::vec4(color, 1.0f);
-            var color = viridis_quintic( minP );
-            // let mean = va1.mean();
-            for(let y = 0; y < tileSize; ++y)
-            {
-                for (let x = 0; x < tileSize; ++x)
-                {
-                    let sX = xi * tileSize + x;
-                    let sY = yi * tileSize + y;
-                    let dIndex = sY * floatImageWidth + sX;
-                    rgba[dIndex * 4]   = color[0];
-                    rgba[dIndex * 4+1] = color[1];
-                    rgba[dIndex * 4+2] = color[2];
-                    rgba[dIndex * 4+3] = 1.0;
-                }
-            }
-        }
-    }
-
-    // console.log(pHistgram);
-    chart.update();
-
-    glsl.setUniform("u_image_welch", { width:floatImageWidth, height:floatImageHeight, data:rgba });
-
-    $("#WelchSlider").val(100);
-    glsl.setUniform("u_welchOverlay", 1.0);
-    $("#pUI").show();
-}
 // left to right, top to bottom
 // o.r, o.g, o.b, o.a, xi, yi will be filled.
 function sampleNearestNeighbor(image, u, v, o)
