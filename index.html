@@ -65,17 +65,15 @@
     </div>
 </div>
 
-<div style="margin-left: 30px; margin-right: 30px; display: flex; justify-content: space-between;">
+<div id="layerview" style="display:none;">
+<div style="margin-left: 30px; margin-right: 30px; display: flex; justify-content: space-between;" >
     <select id="layerL" name="layerL">
         <option value="">RGB</option>
-        <option value="↘">AOV Color</option>
-        <option value="↗">AOV Normal</option>
     </select>
     <select id="layerR" name="layerR">
         <option value="">RGB</option>
-        <option value="↘">AOV Color</option>
-        <option value="↗">AOV Normal</option>
     </select>
+</div>
 </div>
 
 <div style="height: 8px"></div> <!--  margin -->
@@ -340,6 +338,10 @@ canvas.width = 1200;
 canvas.height = 722;
 
 const HILIGHT_VALUE = 0.4;
+
+// for exr
+let imageLayeredL = null;
+let imageLayeredR = null;
 
 // for Slice Graph. left to right and top to bottom order.
 let imageLRaw = null;
@@ -1426,7 +1428,8 @@ function updatePlaceHolder() {
 
 class LayeredExrImage {
     constructor( exrImage ) {
-        this.exrImage = exrImage;
+        this.width = exrImage.width;
+        this.height = exrImage.height;
         let channels = exrImage.channels();
         let hasRGB = channels.includes("R") && channels.includes("G") && channels.includes("B");
 
@@ -1454,6 +1457,10 @@ class LayeredExrImage {
             }
         }
     }
+    isRGBOnly()
+    {
+        return this.colorChannels["RGB"] && Object.keys( this.colorChannels ).length == 1;
+    }
     getDefaultLayer()
     {
         if( this.colorChannels["RGB"] )
@@ -1470,7 +1477,7 @@ class LayeredExrImage {
         let r = rgb[0];
         let g = rgb[1];
         let b = rgb[2];
-        let nPixels = this.exrImage.width * this.exrImage.height;
+        let nPixels = this.width * this.height;
         let rgba = new Float32Array(nPixels * 4);
         for (let i = 0; i < nPixels; i++) {
             let rval = r[i];
@@ -1490,13 +1497,102 @@ class LayeredExrImage {
                 nInf++;
             }
         }
+
+        // Layer
         return { 
-            width: this.exrImage.width, 
-            height: this.exrImage.height, 
+            width: this.width,
+            height: this.height,
             data:rgba ,
             nNan: nNan,
             nInf: nInf
         }
+    }
+}
+
+function setLayer( layer, sampler, isLeft )
+{
+    glsl.setUniform( sampler, layer );
+    let rgba = layer.data;
+    let nNan = layer.nNan;
+    let nInf = layer.nInf;
+
+    setCanvasSize( layer.width, layer.height );
+    
+    if(isLeft)
+    {
+        $("#L_fpLabel").text(`L NaN: ${nNan}, Inf: ${nInf}`);
+    }
+    else
+    {
+        $("#R_fpLabel").text(`R NaN: ${nNan}, Inf: ${nInf}`);
+    }
+
+    onTriggeredUpdateImage();
+}
+
+$("#layerL").on("change", function(e) {
+    const value = this.value;
+    let layer = imageLayeredL.getLayer(value);
+    setLayer( layer, "u_image_L", true );
+});
+$("#layerR").on("change", function(e) {
+    const value = this.value;
+    let layer = imageLayeredR.getLayer(value);
+    setLayer( layer, "u_image_R", false );
+});
+
+function updateExrLayerUI()
+{
+    let updated = false;
+    let hidden = $('#layerview').is(":hidden");
+    let newHidden = !( imageLayeredL || imageLayeredR );
+    if( newHidden )
+    {
+        $('#layerview').hide();
+    }
+    else
+    {
+        $('#layerview').show();
+    }
+    if( hidden != newHidden )
+    {
+        updated = true;
+    }
+
+    let hiddenL = $('#layerL').is(":hidden");
+    let hiddenR = $('#layerR').is(":hidden");
+    let newHiddenL = imageLayeredL === null || imageLayeredL.isRGBOnly();
+    let newHiddenR = imageLayeredR === null || imageLayeredR.isRGBOnly();
+
+    if( newHiddenL )
+    {
+        $("#layerL").hide();
+    }
+    else
+    {
+        $("#layerL").show();
+    }
+    if( newHiddenR )
+    {
+        $("#layerR").hide();
+    }
+    else
+    {
+        $("#layerR").show();
+    }
+    
+    if( hiddenL != newHiddenL )
+    {
+        updated = true;
+    }
+    if( hiddenR != newHiddenR )
+    {
+        updated = true;
+    }
+
+    if( updated )
+    {
+        invokeRender();
     }
 }
 
@@ -1510,6 +1606,11 @@ var handleDrop = function(file, sampler, isLeft) {
 
     let isExr = file.name.endsWith('.exr');
 
+    if( isExr )
+    {
+        $.blockUI({ message: 'loading exr...' });
+    }
+
     let reader = new FileReader();
     reader.onload = function(event) {
         glsl.setUniform(sampler, null);
@@ -1519,24 +1620,28 @@ var handleDrop = function(file, sampler, isLeft) {
             window.loadExr( event.target.result, function(exrImage) {
                 let layered = new LayeredExrImage( exrImage );
 
-                let defaultLayer = layered.getDefaultLayer();
-                glsl.setUniform( sampler, defaultLayer );
-                let rgba = defaultLayer.data;
-                let nNan = defaultLayer.nNan;
-                let nInf = defaultLayer.nInf;
-
-                setCanvasSize( exrImage.width, exrImage.height );
-                
-                if(isLeft)
+                // update option
+                let layerOption = null;
+                if( isLeft )
                 {
-                    $("#L_fpLabel").text(`L NaN: ${nNan}, Inf: ${nInf}`);
+                    imageLayeredL = layered;
+                    layerOption = $('#layerL');
                 }
                 else
                 {
-                    $("#R_fpLabel").text(`R NaN: ${nNan}, Inf: ${nInf}`);
+                    imageLayeredR = layered;
+                    layerOption = $('#layerR');
                 }
+                layerOption.empty();
+                for( let key in layered.colorChannels ) {
+                    layerOption.append(new Option( key, key));
+                }
+                updateExrLayerUI();
 
-                onTriggeredUpdateImage();
+                let defaultLayer = layered.getDefaultLayer();
+                setLayer( defaultLayer, sampler, isLeft );
+
+                $.unblockUI();
             } );
         }
         else
@@ -1547,6 +1652,16 @@ var handleDrop = function(file, sampler, isLeft) {
                 setCanvasSize( image.width, image.height );
             };
             image.src = event.target.result;
+
+            if( isLeft )
+            {
+                imageLayeredL = null;
+            }
+            else
+            {
+                imageLayeredR = null;
+            }
+            updateExrLayerUI();
 
             if(isLeft)
             {
