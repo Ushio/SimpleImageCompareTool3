@@ -9,7 +9,7 @@ http://Ushio.github.io/SimpleImageCompareTool3
 - Diff mode
 - Loupe mode
 - Simple Post Processing (Scale, Gamma)
-- OpenExr Support
+- OpenExr & Multilayer Support
 - Slice Graph. Inspired by [Steve Wright, "Digital Compositing for Film and Video"](https://www.amazon.co.jp/Digital-Compositing-Film-Video-Production-ebook/dp/B088NMQHT9/ref=tmm_kin_swatch_0?_encoding=UTF8&qid=&sr=)
 
 ## dependencies 
