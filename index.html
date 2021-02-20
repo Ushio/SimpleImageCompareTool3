@@ -1542,8 +1542,12 @@ $("#layerR").on("change", function(e) {
 });
 function updateExrLayerUI()
 {
-    let newHidden = !( imageLayeredL || imageLayeredR );
-    if( newHidden )
+    let newHiddenL = imageLayeredL === null || imageLayeredL.isRGBOnly();
+    let newHiddenR = imageLayeredR === null || imageLayeredR.isRGBOnly();
+    $("#layerL").css('visibility', newHiddenL ? 'hidden' : 'visible' );
+    $("#layerR").css('visibility', newHiddenR ? 'hidden' : 'visible' );
+
+    if( newHiddenL && newHiddenR )
     {
         $('#layerview').hide();
     }
@@ -1551,10 +1555,6 @@ function updateExrLayerUI()
     {
         $('#layerview').show();
     }
-    let newHiddenL = imageLayeredL === null || imageLayeredL.isRGBOnly();
-    let newHiddenR = imageLayeredR === null || imageLayeredR.isRGBOnly();
-    $("#layerL").css('visibility', newHiddenL ? 'hidden' : 'visible' );
-    $("#layerR").css('visibility', newHiddenR ? 'hidden' : 'visible' );
 
     invokeRender();
 }
