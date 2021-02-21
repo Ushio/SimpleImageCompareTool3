@@ -65,11 +65,38 @@
     </div>
 </div>
 
+<!-- checkbox css -->
+<style>
+    input[type=checkbox][id=link] {
+        display:none;
+    }
+    input[type=checkbox][id=link] + label { 
+        content:""; display:inline-block; 
+        background:url("link.png");
+        width:60px; height:38px;
+    }
+    input[type=checkbox][id=link]:checked + label { 
+        background:url("link-none.png");
+        width:60px; height:38px;
+    }​
+</style>
+<style>
+    .linkline
+    {
+        background-color: rgb(240, 240, 240);
+    }
+</style>
 <div id="layerview" style="display:none;">
-<div style="margin-left: 30px; margin-right: 30px; display: flex; justify-content: space-between;" >
+<div style="margin-left: 30px; margin-right: 30px; display: flex; justify-content: space-between; align-items: center;" >
     <select id="layerL" name="layerL" style="font-size: 18px;">
         <option value="">RGB</option>
     </select>
+    <div style="flex: auto; height: 3px; margin-left: 10px; margin-right: 6px;" class="linkage linkline"></div>
+    <div style="height: 38px;" class="linkage">
+        <input type="checkbox" id="link" checked onchange="onLinkChange(this.checked)">
+        <label for="link"></label> 
+    </div>
+    <div style="flex: auto; height: 3px; margin-left: 6px; margin-right: 10px;" class="linkage linkline"></div>
     <select id="layerR" name="layerR" style="font-size: 18px;">
         <option value="">RGB</option>
     </select>
@@ -1459,7 +1486,7 @@ class LayeredExrImage {
     }
     isRGBOnly()
     {
-        return this.colorChannels["RGB"] && Object.keys( this.colorChannels ).length == 1;
+        return typeof( this.colorChannels["RGB"] ) != "undefined" && Object.keys( this.colorChannels ).length == 1;
     }
     getDefaultLayer()
     {
@@ -1530,15 +1557,50 @@ function setLayer( layer, sampler, isLeft )
     onTriggeredUpdateImage();
 }
 
+function onLinkChange( isBreaking )
+{
+    if( isBreaking == false )
+    {
+        let currentLayerName = $("#layerL").val();
+        $("#layerR").val(currentLayerName);
+        let layerR = imageLayeredR.getLayer(currentLayerName);
+        setLayer( layerR, "u_image_R", false );
+
+        $('.linkline').css('background-color','rgb(140, 140, 140)');
+    }
+    else
+    {
+        $('.linkline').css('background-color','rgb(230, 230, 230)');
+    }
+}
+
 $("#layerL").on("change", function(e) {
     const value = this.value;
     let layer = imageLayeredL.getLayer(value);
     setLayer( layer, "u_image_L", true );
+
+    let isBreaking = $("#link").is(":checked");
+    if( isBreaking == false )
+    {
+        let currentLayerName = $("#layerL").val();
+        $("#layerR").val(currentLayerName);
+        let layerR = imageLayeredR.getLayer(currentLayerName);
+        setLayer( layerR, "u_image_R", false );
+    }
 });
 $("#layerR").on("change", function(e) {
     const value = this.value;
     let layer = imageLayeredR.getLayer(value);
     setLayer( layer, "u_image_R", false );
+
+    let isBreaking = $("#link").is(":checked");
+    if( isBreaking == false )
+    {
+        let currentLayerName = $("#layerR").val();
+        $("#layerL").val(currentLayerName);
+        let layerL = imageLayeredL.getLayer(currentLayerName);
+        setLayer( layerL, "u_image_L", true );
+    }
 });
 function updateExrLayerUI()
 {
@@ -1554,6 +1616,17 @@ function updateExrLayerUI()
     else
     {
         $('#layerview').show();
+    }
+
+    let L = JSON.stringify( imageLayeredL ? Object.keys( imageLayeredL.colorChannels ) : [] )
+    let R = JSON.stringify( imageLayeredR ? Object.keys( imageLayeredR.colorChannels ) : [] )
+    if( newHiddenL == false && newHiddenR == false && L === R )
+    {
+        $('.linkage').css('display','block');
+    }
+    else
+    {
+        $('.linkage').css('display','none');
     }
 
     invokeRender();
