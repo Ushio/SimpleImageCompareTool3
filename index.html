@@ -143,12 +143,15 @@
         <div style="display: flex; flex-direction:column; align-items: center;">
             <div style="text-align: center;">Border</div>
             <div style="height: 4px"></div> <!--  margin -->
-            <div style="text-align: center;" id="borderlabel">2 px</div>
+            <div style="text-align: center;" id="borderlabel">width: 2 px</div>
             <div style="height: 10px"></div> <!--  margin -->
             <input type="range" value="2" min="0" max="32" step="1" id="border" class="slider">
-            <div style="height: 20px"></div> <!--  margin -->
+            <div style="height: 4px"></div> <!--  margin -->
+            <div style="text-align: center;">length</div>
+            <input type="range" value="1000" min="0" max="1000" step="1" id="borderlength" class="slider">
+            <div style="height: 4px"></div> <!--  margin -->
             <div style="text-align: center;">color</div>
-            <div style="height: 6px"></div> <!--  margin -->
+            <div style="height: 4px"></div> <!--  margin -->
             <input class="border_color" value="#000000" style="width:130px"/>
         </div>
 
@@ -696,6 +699,7 @@ precision mediump float;
     uniform vec2  u_direction;
     uniform vec2  u_direction_fixed;
     uniform float u_border;
+    uniform float u_borderlength;
     uniform vec3  u_border_color;
     uniform float u_diffmode;
     uniform float u_diffscale;
@@ -800,7 +804,19 @@ precision mediump float;
     {
         return mix(c, vec4(1.0), u_hilightR);
     }
-
+    float sdCapsle(vec2 p, vec2 a, vec2 b, float r, out bool isRound ) 
+    {
+        vec2 ab = b - a;
+        vec2 ap = p - a;
+        float t = dot(ab, ap) / dot(ab, ab);
+        if( t < 0.0 || 1.0 < t )
+        {
+            isRound = true;
+        }
+        t = clamp(t, 0.0, 1.0);
+        vec2 c = a + ab * t;
+        return distance(c, p) - r;
+    }
     void main() {
         vec2 fragcoord = gl_FragCoord.xy;
         vec2 st = fragcoord / u_resolution.xy;
@@ -869,9 +885,17 @@ precision mediump float;
             gl_FragColor = applyPost(gl_FragColor);
         }
 
-        if(0.0 < u_border) {
-            float bar = u_border * 0.5;
-            float bar_window = smoothstep(bar - delta, bar + delta, abs(b));
+        if( 0.0 < u_border ) {
+            vec2 capsledir = vec2(-direction.y, direction.x);
+            bool isRound;
+            float L = 1.0 <= u_borderlength ? 100000.0 : pow(u_borderlength, 2.5) * length( u_resolution.xy );
+            float sd = sdCapsle( fragcoord, u_mouselocation - capsledir * L * 0.5, u_mouselocation + capsledir * L * 0.5, u_border * 0.5, isRound );
+            if ( isRound )
+            {
+                delta = 0.75; // feeling constant for edge antialias
+            }
+            
+            float bar_window = smoothstep( -delta, delta, sd );
             gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
         }
         
@@ -891,6 +915,7 @@ glsl.setUniform("u_image_R", "dogs-after.jpg");
 glsl.setUniform("u_direction", 1.0, 0.0);
 glsl.setUniform("u_mouselocation", canvas.width * 0.5, canvas.height * 0.5);
 glsl.setUniform("u_border", 2);
+glsl.setUniform("u_borderlength", 1);
 glsl.setUniform("u_border_color", 0.0, 0.0, 0.0);
 glsl.setUniform("u_diffmode", 0.0);
 glsl.setUniform("u_diffscale", 1.0);
@@ -1210,7 +1235,12 @@ $("#fixed_direction").on("change", function(e){
 $("#border").on("input", function(e){
     const value = this.value;
     glsl.setUniform("u_border", parseFloat(value));
-    $("#borderlabel").text(value + "px");
+    $("#borderlabel").text("width: " + value + "px");
+});
+
+$("#borderlength").on("input", function(e){
+    const value = this.value;
+    glsl.setUniform("u_borderlength", parseFloat(value) / 1000.0);
 });
 
 // Border color
