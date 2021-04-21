@@ -162,6 +162,11 @@
             <input value="" style="width:130px" id="Label_L_override"/>
             <div style="height: 10px"></div> <!--  margin -->
             <input value="" style="width:130px" id="Label_R_override"/>
+            <div style="height: 20px"></div> <!--  margin -->
+            <div>
+                <input type="checkbox" name="nolabel" id="nolabel" onchange="onHideLabel(this.checked)">
+                <label for="nolabel" style="cursor: pointer; user-select: none;">Hide Labels</label>
+            </div>
         </div>
 
         <div style="display: flex; flex-direction:column; align-items: center;">
@@ -364,6 +369,8 @@ let R_filename = "R";
 
 let angle = 0.0; // for label location
 
+let isLabelHide = false;
+
 // be careful. this should point initial image size
 canvas.width = 1200;
 canvas.height = 722;
@@ -462,6 +469,9 @@ glsl.on("render", function(e) {
     };
     function drawText(text, location) {
         if(fontsize == "0") {
+            return;
+        }
+        if(isLabelHide) {
             return;
         }
         uictx.save();
@@ -1873,6 +1883,17 @@ $("#drop-zoneR").on("click", function(e) {
     };
     input.click();
 });
+
+function onHideLabel( isHide )
+{
+    let opacity = isHide ? 0.3 : 1.0;
+    $("#Label_L_override").css("opacity", opacity);
+    $("#Label_R_override").css("opacity", opacity);
+
+    isLabelHide = isHide;
+
+    invokeRender();
+}
 
 // left to right, top to bottom
 // o.r, o.g, o.b, o.a, xi, yi will be filled.
