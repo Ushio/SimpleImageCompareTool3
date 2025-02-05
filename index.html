@@ -61,6 +61,8 @@
     <div style="width: 100%; display: flex; ">
         <div id="drop-zoneL" style="height: 50px; width: 100%; border: thin solid #acacac;  border-radius: 10px;"><span class="boxspan">Left Image (Please drop your image here)</span></div>
         <div style="width: 20px;"></div>
+        <div id="drop-zoneMid" style="height: 50px; width: 400px; border: thin solid #acacac;  border-radius: 10px;"><span class="boxspan">Bottom Image</span></div>
+        <div style="width: 20px;"></div>
         <div id="drop-zoneR" style="height: 50px; width: 100%; border: thin solid #acacac;  border-radius: 10px;"><span class="boxspan">Right Image (Please drop your image here)</span></div>
     </div>
 </div>
@@ -384,6 +386,8 @@ let imageLayeredR = null;
 // for Slice Graph. left to right and top to bottom order.
 let imageLRaw = null;
 let imageRRaw = null;
+
+let hasImageMid = false;
 
 // relative to ui canvas. up positive.
 let sliceVertices = [
@@ -730,6 +734,9 @@ precision mediump float;
     uniform sampler2D u_image_L;
     uniform sampler2D u_image_R;
 
+    uniform sampler2D u_image_Mid;
+    uniform float u_overlay;
+
     uniform vec3 u_Nan_Color;
     uniform vec3 u_Inf_Color;
     
@@ -857,6 +864,14 @@ precision mediump float;
         float s = smoothstep(-delta, delta, b);
 
         gl_FragColor = mix(L, R, s);
+
+        bool overlayEanbled = 0.0 < u_overlay && u_loupemode == 0.0;
+
+        if( overlayEanbled )
+        {
+            float mb = border(fragcoord, vec2(direction.y, -direction.x), u_mouselocation);
+            gl_FragColor = mix(gl_FragColor, texture2D(u_image_Mid, st), smoothstep(-delta, delta, mb));
+        }
         
         // Loupe
         float loupedelta = 0.9; 
@@ -900,12 +915,21 @@ precision mediump float;
             vec2 capsledir = vec2(-direction.y, direction.x);
             bool isRound;
             float L = 1.0 <= u_borderlength ? 100000.0 : pow(u_borderlength, 2.5) * length( u_resolution.xy );
-            float sd = sdCapsle( fragcoord, u_mouselocation - capsledir * L * 0.5, u_mouselocation + capsledir * L * 0.5, u_border * 0.5, isRound );
+            float BottomLen = L;
+            if( overlayEanbled )
+            {
+                BottomLen = 0.0;
+            }
+            float sd = sdCapsle( fragcoord, u_mouselocation - capsledir * BottomLen * 0.5, u_mouselocation + capsledir * L * 0.5, u_border * 0.5, isRound );
             if ( isRound )
             {
                 delta = 0.75; // feeling constant for edge antialias
             }
-            
+            if( overlayEanbled )
+            {
+                capsledir = vec2(direction.x, direction.y);
+                sd = min(sd, sdCapsle( fragcoord, u_mouselocation - capsledir * L * 0.5, u_mouselocation + capsledir * L * 0.5, u_border * 0.5, isRound ) );
+            }
             float bar_window = smoothstep( -delta, delta, sd );
             gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, bar_window);
         }
@@ -940,6 +964,7 @@ glsl.setUniform("u_postGamma", 2.2);
 glsl.setUniform("u_ACEScgToSRGB", 0.0);
 glsl.setUniform("u_hilightL", 0.0);
 glsl.setUniform("u_hilightR", 0.0);
+glsl.setUniform("u_overlay", 0.0);
 glsl.setUniform("u_Nan_Color", 1.0, 0.0, 0.0);
 glsl.setUniform("u_Inf_Color", 1.0, 0.0, 1.0);
 
@@ -1000,6 +1025,11 @@ function updateMouseLocation(e) {
     }
     mouseLocationXLocalAlways = x;
     mouseLocationYLocalAlways = y;
+
+    if( hasImageMid )
+    {
+        glsl.setUniform("u_overlay", down ? 1.0 : 0.0);
+    }
 }
 
 function Clamp(x, lower, upper) {
@@ -1084,6 +1114,7 @@ function mouseUp()
 
         $('#REC').css('background-image', 'url(Rec.svg)');
     }
+    glsl.setUniform("u_overlay", 0.0);
 }
 $("html").mouseup(function() {
     mouseUp();
@@ -1091,6 +1122,7 @@ $("html").mouseup(function() {
 $(EVENT_VIEW).mouseup(function(e) {
     mouseUp();
 });
+
 $(EVENT_VIEW).mouseleave(function(e){
     updateMouseLocation(e);
 });
@@ -1452,7 +1484,43 @@ function onSaveAnimation() {
 //     glsl.setUniform("u_image_L", { width:2, height:3, data:rawf });
 // }
 
-var dragoverHandler = function(e){
+// Middle 
+$("#drop-zoneMid").on("dragover", function(e){
+    e.preventDefault();
+    $(this).addClass("dragover");
+});
+$("#drop-zoneMid").on("dragleave", function(e){
+    e.preventDefault();
+
+    if(hasImageMid == false)
+    {
+        $(this).removeClass("dragover");
+    }
+});
+
+$("#drop-zoneMid").on("drop", function(e) {
+    e.preventDefault();
+    if(0 < e.originalEvent.dataTransfer.files.length)
+    {
+        hasImageMid = true;
+
+        let reader = new FileReader();
+        reader.onload = function(event) {
+            glsl.setUniform("u_image_Mid", event.target.result);
+        }
+        reader.readAsDataURL(e.originalEvent.dataTransfer.files[0]);
+    }
+    else
+    {
+        $(this).removeClass("dragover");
+    }
+});
+$("#drop-zoneMid").mousedown(function(e){
+    hasImageMid = false;
+    $(this).removeClass("dragover");
+});
+
+var dragoverHandler = function(e) {
     e.preventDefault();
     $(this).addClass("dragover");
 
