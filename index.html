@@ -736,6 +736,7 @@ precision mediump float;
 
     uniform sampler2D u_image_Mid;
     uniform float u_overlay;
+    uniform float u_hasImageMid;
 
     uniform vec3 u_Nan_Color;
     uniform vec3 u_Inf_Color;
@@ -866,6 +867,7 @@ precision mediump float;
         gl_FragColor = mix(L, R, s);
 
         bool overlayEanbled = 0.0 < u_overlay && u_loupemode == 0.0;
+        bool mid_roupe_px = false;
 
         if( overlayEanbled )
         {
@@ -898,12 +900,26 @@ precision mediump float;
                 gl_FragColor.rgb = mix(gl_FragColor.rgb, GetImageR(sample).rgb, alpha);
             }
 
+            // bottom of loupe
+            vec2 bhs = u_mouselocation + vec2(direction.y, -direction.x) * size * 0.8 /*bias*/;
+            if(0.0 < u_hasImageMid)
+            {
+                {
+                    float alpha = 1.0 - smoothstep( size * 0.5 - loupedelta, size * 0.5 + loupedelta, distance(fragcoord, bhs) );
+                    vec2 localcoord = fragcoord - bhs;
+                    vec2 sample = (localcoord / scale + u_mouselocation)  / u_resolution.xy;
+                    gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(u_image_Mid, sample).rgb, alpha);
+                    mid_roupe_px = 0.0 < alpha;
+                }
+            }
+
             gl_FragColor = applyPost(gl_FragColor);
 
             if( 0.0 < u_border ) {
                 float a = smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, lhs) - size * 0.5));
                 float b = smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, rhs) - size * 0.5));
-                gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, a * b);
+                float c = 0.0 < u_hasImageMid ? smoothstep(u_border * 0.5 - loupedelta, u_border * 0.5 + loupedelta, abs(distance(fragcoord, bhs) - size * 0.5)) : 1.0;
+                gl_FragColor.rgb = mix(u_border_color, gl_FragColor.rgb, a * b * c);
             }
         }
         else
@@ -911,7 +927,7 @@ precision mediump float;
             gl_FragColor = applyPost(gl_FragColor);
         }
 
-        if( 0.0 < u_border ) {
+        if( 0.0 < u_border && mid_roupe_px == false /* not to cover roupe */ ) {
             vec2 capsledir = vec2(-direction.y, direction.x);
             bool isRound;
             float L = 1.0 <= u_borderlength ? 100000.0 : pow(u_borderlength, 2.5) * length( u_resolution.xy );
@@ -1514,10 +1530,14 @@ $("#drop-zoneMid").on("drop", function(e) {
     {
         $(this).removeClass("dragover");
     }
+
+    glsl.setUniform("u_hasImageMid", hasImageMid ? 1.0 : 0.0);
 });
 $("#drop-zoneMid").mousedown(function(e){
     hasImageMid = false;
     $(this).removeClass("dragover");
+
+    glsl.setUniform("u_hasImageMid", hasImageMid ? 1.0 : 0.0);
 });
 
 var dragoverHandler = function(e) {
